@@ -1,0 +1,71 @@
+services:
+  eureka-server:
+    build:
+      context: ./backend/eureka-server
+      dockerfile: Dockerfile
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    networks:
+      - microservice-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  profile-service-db:
+    image: postgres:15
+    container_name: profile-service-db
+    environment:
+      POSTGRES_USER: ${PROFILE_DB_USER}
+      POSTGRES_PASSWORD: ${PROFILE_DB_PASSWORD}
+      POSTGRES_DB: ${PROFILE_DB}
+    env_file:
+      - .env
+    ports:
+      - "5431:5432"
+    volumes:
+      - profile_db_data:/var/lib/postgresql/data
+    networks:
+      - microservice-network
+
+  profile-service:
+    build:
+      context: ./backend/profile-service
+      dockerfile: Dockerfile
+    container_name: profile-service
+    ports:
+      - "8081:8080"
+    env_file:
+      - .env
+    environment:
+      SPRING_DATASOURCE_URL: ${PROFILE_DB_URL}
+      SPRING_DATASOURCE_USERNAME: ${PROFILE_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${PROFILE_DB_PASSWORD}
+    depends_on:
+      - profile-service-db
+    networks:
+      - microservice-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    networks:
+      - microservice-network
+    depends_on:
+      - profile-service
+    environment:
+      # VITE_API_URL: http://profile-service:8080
+      VITE_ENV: production
+
+volumes:
+  profile_db_data:
+
+networks:
+  microservice-network:
+    driver: bridge
