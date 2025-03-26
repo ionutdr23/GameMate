@@ -1,67 +1,87 @@
 services:
   eureka-server:
+    container_name: eureka-server
     build:
       context: ./backend/eureka-server
       dockerfile: Dockerfile
-    container_name: eureka-server
-    ports:
-      - "8761:8761"
-    networks:
-      - microservice-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
       interval: 10s
       timeout: 5s
       retries: 3
+    ports:
+      - "8761:8761"
+    networks:
+      - microservice-network
 
   profile-service-db:
-    image: postgres:15
     container_name: profile-service-db
+    image: postgres:15
     environment:
       POSTGRES_USER: ${PROFILE_DB_USER}
       POSTGRES_PASSWORD: ${PROFILE_DB_PASSWORD}
       POSTGRES_DB: ${PROFILE_DB}
+    volumes:
+      - profile_db_data:/var/lib/postgresql/data
     env_file:
       - .env
     ports:
       - "5431:5432"
-    volumes:
-      - profile_db_data:/var/lib/postgresql/data
     networks:
       - microservice-network
 
   profile-service:
+    container_name: profile-service
     build:
       context: ./backend/profile-service
       dockerfile: Dockerfile
-    container_name: profile-service
-    ports:
-      - "8081:8080"
     env_file:
       - .env
     environment:
       SPRING_DATASOURCE_URL: ${PROFILE_DB_URL}
       SPRING_DATASOURCE_USERNAME: ${PROFILE_DB_USER}
       SPRING_DATASOURCE_PASSWORD: ${PROFILE_DB_PASSWORD}
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH0_ISSUER}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
       - profile-service-db
+    ports:
+      - "8081:8080"
+    networks:
+      - microservice-network
+
+  gateway-service:
+    container_name: gateway-service
+    build:
+      context: ./backend/gateway-service
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH0_ISSUER}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+      PROFILE_SERVICE_URL: ${GATEWAY_PROFILE_SERVICE_URL}
+    depends_on:
+      - eureka-server
+      - profile-service
     networks:
       - microservice-network
 
   frontend:
+    container_name: frontend
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: frontend
+    depends_on:
+      - gateway-service
     ports:
       - "80:80"
     networks:
       - microservice-network
-    depends_on:
-      - profile-service
-    environment:
-      # VITE_API_URL: http://profile-service:8080
-      VITE_ENV: production
 
 volumes:
   profile_db_data:

@@ -1,7 +1,0 @@
-services:
-  profile-service:
-    volumes:
-      - ./backend/profile-service:/app
-      - ./backend/profile-service/target:/app/target
-    environment:
-      SPRING_PROFILES_ACTIVE: dev
