@@ -81,9 +81,4 @@ public class ProfileService {
         existing.setUpdatedAt(ZonedDateTime.now());
         return profileRepository.save(existing);
     }
-
-    public void delete(UUID id) {
-        // TODO: Implement cascade delete for all other related entities in all services
-        profileRepository.deleteById(id);
-    }
 }

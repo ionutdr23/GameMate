@@ -41,22 +41,6 @@ public class ProfileController {
             @RequestBody ProfileRequest request
     ) {
         String auth0UserId = jwt.getSubject();
-        if (auth0UserId.equals(profileService.getCurrentUserProfile(auth0UserId).getAuth0Id())) {
-            return ResponseEntity.ok(profileService.update(id, request));
-        } else {
-            return ResponseEntity.status(403).build();
-        }
-        // TODO: Implement authorization check for moderators
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProfile(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
-        String auth0UserId = jwt.getSubject();
-        if (auth0UserId.equals(profileService.getCurrentUserProfile(auth0UserId).getAuth0Id())) {
-            profileService.delete(id);
-        } else {
-            return ResponseEntity.status(403).build(); // Forbidden
-        }
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.ok(profileService.updateProfile(id, auth0UserId, request));
     }
 }
