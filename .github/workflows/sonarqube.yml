@@ -18,6 +18,10 @@ jobs:
           java-version: 21
           distribution: temurin
 
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+        working-directory: backend/${{ matrix.service }}
+
       - name: Gradle Test and Jacoco Coverage
         working-directory: backend/${{ matrix.service }}
         run: ./gradlew clean test jacocoTestReport
