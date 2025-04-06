@@ -43,6 +43,6 @@ jobs:
 
           ./gradlew sonar \
             -Dsonar.projectKey=${{ matrix.service }} \
-            -Dsonar.host.url=$SONAR_HOST_URL \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
             -Dsonar.login=$SONAR_TOKEN
         shell: bash
