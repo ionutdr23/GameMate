@@ -34,12 +34,14 @@ jobs:
 
       - name: Run SonarQube Analysis
         working-directory: backend/${{ matrix.service }}
+        env:
+          SONAR_TOKEN_SOCIAL_SERVICE: ${{ secrets.SONAR_TOKEN_SOCIAL_SERVICE }}
         run: |
           SERVICE_KEY=$(echo "${{ matrix.service }}" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
           SONAR_TOKEN_VAR="SONAR_TOKEN_${SERVICE_KEY}"
           SONAR_TOKEN="${!SONAR_TOKEN_VAR}"
 
-          echo "Running SonarQube analysis for ${{ matrix.service }} using token $SONAR_TOKEN"
+          echo "Running SonarQube analysis for ${{ matrix.service }}"
 
           ./gradlew sonar \
             -Dsonar.projectKey=${{ matrix.service }} \
