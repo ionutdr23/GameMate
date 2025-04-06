@@ -38,6 +38,7 @@ jobs:
         working-directory: backend/${{ matrix.service }}
         env:
           SONAR_TOKEN_SOCIAL_SERVICE: ${{ secrets.SONAR_TOKEN_SOCIAL_SERVICE }}
+          SONAR_TOKEN_PROFILE_SERVICE: ${{ secrets.SONAR_TOKEN_PROFILE_SERVICE }}
         run: |
           SERVICE_KEY=$(echo "${{ matrix.service }}" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
           SONAR_TOKEN_VAR="SONAR_TOKEN_${SERVICE_KEY}"
