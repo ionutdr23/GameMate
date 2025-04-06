@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [social-service]
+        service: [social-service, profile-service]
     steps:
       - uses: actions/checkout@v4
 
