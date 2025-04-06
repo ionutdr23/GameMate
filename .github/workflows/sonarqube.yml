@@ -39,7 +39,7 @@ jobs:
           SONAR_TOKEN_VAR="SONAR_TOKEN_${SERVICE_KEY}"
           SONAR_TOKEN="${!SONAR_TOKEN_VAR}"
 
-          echo "Running SonarQube analysis for ${{ matrix.service }} using token for $SONAR_TOKEN_VAR"
+          echo "Running SonarQube analysis for ${{ matrix.service }} using token $SONAR_TOKEN"
 
           ./gradlew sonar \
             -Dsonar.projectKey=${{ matrix.service }} \
