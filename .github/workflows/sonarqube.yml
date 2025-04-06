@@ -28,12 +28,17 @@ jobs:
           name: test-reports
           path: backend/${{ matrix.service }}/build/reports/jacoco/test/
 
-      - name: SonarQube Analysis
+      - name: Run SonarQube Analysis
         working-directory: backend/${{ matrix.service }}
-        env:
-          SONAR_TOKEN: ${{ secrets[format('SONAR_TOKEN_{0}', matrix.service.replace('-', '_').toUpperCase())] }}
         run: |
+          SERVICE_KEY=$(echo "${{ matrix.service }}" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
+          SONAR_TOKEN_VAR="SONAR_TOKEN_${SERVICE_KEY}"
+          SONAR_TOKEN="${!SONAR_TOKEN_VAR}"
+
+          echo "Running SonarQube analysis for ${{ matrix.service }} using token for $SONAR_TOKEN_VAR"
+
           ./gradlew sonar \
             -Dsonar.projectKey=${{ matrix.service }} \
-            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.host.url=$SONAR_HOST_URL \
             -Dsonar.login=$SONAR_TOKEN
+        shell: bash
