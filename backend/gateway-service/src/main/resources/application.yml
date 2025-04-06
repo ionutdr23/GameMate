@@ -8,8 +8,19 @@ spring:
           uri: ${PROFILE_SERVICE_URL}
           predicates:
             - Path=/api/profile/**
+        - id: social-service
+          uri: ${SOCIAL_SERVICE_URL}
+          predicates:
+            - Path=/api/social/**
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
+eureka:
+  client:
+    enabled: true
+    serviceUrl:
+      defaultZone: http://eureka-server:8761/eureka
+  instance:
+    prefer-ip-address: true

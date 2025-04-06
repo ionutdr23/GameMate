@@ -26,7 +26,23 @@ services:
     env_file:
       - .env
     ports:
-      - "5431:5432"
+      - "5432:5432"
+    networks:
+      - microservice-network
+
+  social-service-db:
+    container_name: social-service-db
+    image: mongo:8.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${SOCIAL_DB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${SOCIAL_DB_PASSWORD}
+      MONGO_INITDB_DATABASE: ${SOCIAL_DB}
+    volumes:
+      - social_db_data:/data/db
+    env_file:
+      - .env
+    ports:
+      - "27017:27017"
     networks:
       - microservice-network
 
@@ -48,9 +64,37 @@ services:
       timeout: 5s
       retries: 3
     depends_on:
-      - profile-service-db
+      eureka-server:
+        condition: service_started
+      profile-service-db:
+        condition: service_started
     ports:
       - "8081:8080"
+    networks:
+      - microservice-network
+
+  social-service:
+    container_name: social-service
+    build:
+      context: ./backend/social-service
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      SPRING_DATA_MONGODB_URI: mongodb://${SOCIAL_DB_USER}:${SOCIAL_DB_PASSWORD}@${SOCIAL_DB_URL}/${SOCIAL_DB}?authSource=admin
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH0_ISSUER}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      eureka-server:
+        condition: service_started
+      social-service-db:
+        condition: service_started
+    ports:
+      - "8082:8080"
     networks:
       - microservice-network
 
@@ -65,9 +109,19 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${AUTH0_ISSUER}
       AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
       PROFILE_SERVICE_URL: ${GATEWAY_PROFILE_SERVICE_URL}
+      SOCIAL_SERVICE_URL: ${GATEWAY_SOCIAL_SERVICE_URL}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     depends_on:
-      - eureka-server
-      - profile-service
+      eureka-server:
+        condition: service_started
+      profile-service:
+        condition: service_started
+      social-service:
+        condition: service_started
     networks:
       - microservice-network
 
@@ -77,7 +131,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     depends_on:
-      - gateway-service
+      gateway-service:
+        condition: service_started
     ports:
       - "80:80"
     networks:
@@ -85,6 +140,7 @@ services:
 
 volumes:
   profile_db_data:
+  social_db_data:
 
 networks:
   microservice-network:
