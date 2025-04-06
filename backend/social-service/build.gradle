@@ -15,15 +15,6 @@ java {
 	}
 }
 
-sonar {
-	properties {
-		property("sonar.projectKey", "social-service")
-		property("sonar.host.url", "http://34.13.209.21:9000")
-		property("sonar.login", "sqp_f38c8293f6a1625e7da19e8e26a6be55d330781e")
-		property("sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/test/jacocoTestReport.xml")
-	}
-}
-
 configurations {
 	compileOnly {
 		extendsFrom annotationProcessor

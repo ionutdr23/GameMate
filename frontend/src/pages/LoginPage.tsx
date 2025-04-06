@@ -29,7 +29,7 @@ const LoginPage = () => {
           <Input.Password placeholder="Password" />
         </Form.Item>
         <Button type="primary" htmlType="submit" block>
-          Login
+          Log in
         </Button>
       </Form>
     </div>
