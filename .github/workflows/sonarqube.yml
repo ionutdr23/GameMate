@@ -1,0 +1,35 @@
+name: SonarQube Analysis for Backend Microservices
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [social-service]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+
+      - name: Gradle Test and Jacoco Coverage
+        working-directory: backend/${{ matrix.service }}
+        run: ./gradlew clean test jacocoTestReport
+
+      - name: SonarQube Analysis
+        working-directory: backend/${{ matrix.service }}
+        env:
+          SONAR_TOKEN: ${{ secrets[format('SONAR_TOKEN_{0}', matrix.service.replace('-', '_').toUpperCase())] }}
+        run: |
+          ./gradlew sonar \
+            -Dsonar.projectKey=${{ matrix.service }} \
+            -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
+            -Dsonar.login=$SONAR_TOKEN
