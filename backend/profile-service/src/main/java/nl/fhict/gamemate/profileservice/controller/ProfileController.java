@@ -1,54 +1,62 @@
 package nl.fhict.gamemate.profileservice.controller;
 
+import lombok.RequiredArgsConstructor;
+import nl.fhict.gamemate.profileservice.dto.ProfileRequest;
 import nl.fhict.gamemate.profileservice.model.Profile;
 import nl.fhict.gamemate.profileservice.service.ProfileService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/profile")
+@RequiredArgsConstructor
 public class ProfileController {
-
-    @Autowired
-    private ProfileService profileService;
+    private final ProfileService profileService;
 
     @PostMapping
-    public ResponseEntity<Profile> createProfile(@RequestBody Profile profile) {
-        try {
-            Profile createdProfile = profileService.createProfile(profile);
-            return ResponseEntity.ok(createdProfile);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
+    public ResponseEntity<Profile> createProfile(@RequestBody ProfileRequest request, @AuthenticationPrincipal Jwt jwt) {
+        String auth0UserId = jwt.getSubject();
+        return ResponseEntity.ok(profileService.createProfile(request, auth0UserId));
     }
 
-    @GetMapping("/{userId}")
-    public ResponseEntity<Profile> getProfile(@PathVariable Long userId) {
-        Optional<Profile> profile = profileService.getProfile(userId);
-        return profile.map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    @GetMapping("/{id}")
+    public ResponseEntity<Profile> getProfileById(@PathVariable UUID id) {
+        return ResponseEntity.ok(profileService.getById(id));
     }
 
-    @PutMapping("/{userId}")
-    public ResponseEntity<Profile> updateProfile(@PathVariable Long userId, @RequestBody Profile updatedProfile) {
-        try {
-            Profile profile = profileService.updateProfile(userId, updatedProfile);
-            return ResponseEntity.ok(profile);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+    @GetMapping("/me")
+    public ResponseEntity<Profile> getMyProfile(@AuthenticationPrincipal Jwt jwt) {
+        String auth0UserId = jwt.getSubject();
+        return ResponseEntity.ok(profileService.getCurrentUserProfile(auth0UserId));
     }
 
-    @PatchMapping("/{userId}/avatar")
-    public ResponseEntity<Profile> updateAvatar(@PathVariable Long userId, @RequestBody String newAvatarUrl) {
-        try {
-            Profile profile = profileService.updateAvatar(userId, newAvatarUrl);
-            return ResponseEntity.ok(profile);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+    @PatchMapping("/{id}")
+    public ResponseEntity<Profile> updateProfile(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestBody ProfileRequest request
+    ) {
+        String auth0UserId = jwt.getSubject();
+        if (auth0UserId.equals(profileService.getCurrentUserProfile(auth0UserId).getAuth0Id())) {
+            return ResponseEntity.ok(profileService.update(id, request));
+        } else {
+            return ResponseEntity.status(403).build();
         }
+        // TODO: Implement authorization check for moderators
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteProfile(@PathVariable UUID id, @AuthenticationPrincipal Jwt jwt) {
+        String auth0UserId = jwt.getSubject();
+        if (auth0UserId.equals(profileService.getCurrentUserProfile(auth0UserId).getAuth0Id())) {
+            profileService.delete(id);
+        } else {
+            return ResponseEntity.status(403).build(); // Forbidden
+        }
+        return ResponseEntity.noContent().build();
     }
 }
