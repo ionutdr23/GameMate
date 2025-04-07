@@ -17,6 +17,10 @@ public class ProfileService {
     private final ProfileRepository profileRepository;
 
     public Profile createProfile(ProfileRequest request, String auth0UserId) {
+        if (profileRepository.existsByAuth0Id(auth0UserId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Profile already exists for this user");
+        }
+
         Profile profile = Profile.builder()
                 .auth0Id(auth0UserId)
                 .username(request.getUsername())
@@ -25,6 +29,7 @@ public class ProfileService {
                 .country(request.getCountry())
                 .city(request.getCity())
                 .profileVisibility(request.getProfileVisibility())
+                .avatarUrl(request.getAvatarUrl())
                 .createdAt(ZonedDateTime.now())
                 .updatedAt(ZonedDateTime.now())
                 .build();

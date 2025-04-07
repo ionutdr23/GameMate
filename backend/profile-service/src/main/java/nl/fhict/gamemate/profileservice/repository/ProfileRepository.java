@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface ProfileRepository extends JpaRepository<Profile, UUID> {
     Optional<Profile> findByAuth0Id(String auth0Id);
+    boolean existsByAuth0Id(String auth0Id);
 }

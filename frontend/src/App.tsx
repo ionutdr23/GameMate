@@ -1,31 +1,33 @@
 import { Routes, Route } from "react-router-dom";
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
+
+// Authentication
+import { ProtectedRoute } from "./auth/ProtectedRoute";
+import AuthCallback from "./auth/AuthCallback";
+
+// Pages
+import LandingPage from "./pages/LandingPage";
 import ProfilePage from "./pages/ProfilePage";
-import FriendsPage from "./pages/FriendsPage";
-import AppLayout from "./components/ui/AppLayout";
+import Feed from "./pages/Feed";
+import Layout from "./components/Layout";
 
-const App = () => {
-  const user = {
-    name: "John Doe",
-    email: "john.doe@example.com",
-    avatar: "https://bit.ly/dan-abramov",
-  };
-
+function App() {
   return (
-    <>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/profile" element={<ProfilePage user={user} />} />
-          <Route path="/friends" element={<FriendsPage />} />
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/" element={<LandingPage />} />
+      {/* Not-Authenticated Routes */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      {/* Authenticated Routes */}
+      <Route path="/" element={<Layout />}>
+        <Route path="/" element={<ProtectedRoute />}>
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/feed" element={<Feed own />} />
+          <Route path="/feed" element={<Feed />} />
         </Route>
-      </Routes>
-    </>
+      </Route>
+      {/* Catch-all Route */}
+    </Routes>
   );
-};
+}
 
 export default App;

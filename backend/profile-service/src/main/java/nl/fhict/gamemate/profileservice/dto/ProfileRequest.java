@@ -14,7 +14,8 @@ public class ProfileRequest {
     private String username;
     private String displayName;
     private String bio;
-    private String Country;
+    private String country;
     private String city;
     private ProfileVisibility profileVisibility;
+    private String avatarUrl;
 }

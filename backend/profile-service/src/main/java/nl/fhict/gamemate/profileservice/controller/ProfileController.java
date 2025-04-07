@@ -8,7 +8,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.UUID;
 
 @RestController
@@ -20,7 +22,12 @@ public class ProfileController {
     @PostMapping
     public ResponseEntity<Profile> createProfile(@RequestBody ProfileRequest request, @AuthenticationPrincipal Jwt jwt) {
         String auth0UserId = jwt.getSubject();
-        return ResponseEntity.ok(profileService.createProfile(request, auth0UserId));
+        Profile createdProfile = profileService.createProfile(request, auth0UserId);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(createdProfile.getId())
+                .toUri();
+        return ResponseEntity.created(location).body(createdProfile);
     }
 
     @GetMapping("/{id}")
