@@ -35,6 +35,7 @@ jobs:
           path: backend/${{ matrix.service }}/build/reports/jacoco/test/
         
       - name: Analyze
+        working-directory: backend/${{ matrix.service }}
         env:
           SONAR_TOKEN_USER_SERVICE: ${{ secrets.SONAR_TOKEN_USER_SERVICE }}
         run: |
