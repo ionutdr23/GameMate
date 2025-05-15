@@ -16,8 +16,6 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static nl.fhict.gamemate.socialservice.dto.CommentResponse.mapToCommentResponse;
-
 @Service
 @AllArgsConstructor
 public class CommentService {
@@ -125,9 +123,17 @@ public class CommentService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't have permission to delete this comment");
         }
 
-        post.setCommentCount(post.getCommentCount() + 1);
-        postRepository.save(post);
+        List<Comment> allReplies = findByParentTree(commentId);
+        List<UUID> allIdsToDelete = allReplies.stream()
+                .map(Comment::getId)
+                .toList();
 
-        commentRepository.deleteById(commentId);
+        allIdsToDelete = new ArrayList<>(allIdsToDelete);
+        allIdsToDelete.add(commentId);
+
+        commentRepository.deleteAllById(allIdsToDelete);
+
+        post.setCommentCount(post.getCommentCount() - allIdsToDelete.size());
+        postRepository.save(post);
     }
 }
