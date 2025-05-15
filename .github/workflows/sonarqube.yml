@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [social-service, profile-service]
+        service: [user-service]
     steps:
       - uses: actions/checkout@v4
 
@@ -37,8 +37,7 @@ jobs:
       - name: Run SonarQube Analysis
         working-directory: backend/${{ matrix.service }}
         env:
-          SONAR_TOKEN_SOCIAL_SERVICE: ${{ secrets.SONAR_TOKEN_SOCIAL_SERVICE }}
-          SONAR_TOKEN_PROFILE_SERVICE: ${{ secrets.SONAR_TOKEN_PROFILE_SERVICE }}
+          SONAR_TOKEN_USER_SERVICE: ${{ secrets.SONAR_TOKEN_USER_SERVICE }}
         run: |
           SERVICE_KEY=$(echo "${{ matrix.service }}" | tr '-' '_' | tr '[:lower:]' '[:upper:]')
           SONAR_TOKEN_VAR="SONAR_TOKEN_${SERVICE_KEY}"
