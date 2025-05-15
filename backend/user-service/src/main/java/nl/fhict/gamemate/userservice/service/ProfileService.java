@@ -16,7 +16,7 @@ import java.util.UUID;
 public class ProfileService {
     private final ProfileRepository repository;
     private final DOAvatarStorageService avatarStorageService;
-
+ 
     public Profile createProfile(String userId, CreateProfileRequest req) {
         if (repository.existsByNicknameIgnoreCase(req.nickname()))
             throw new IllegalArgumentException("Nickname already taken");
