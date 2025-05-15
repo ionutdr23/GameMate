@@ -47,5 +47,5 @@ jobs:
       - name: Build and SonarQube analysis
         working-directory: backend/${{ matrix.service }}
         env:
-          SONAR_TOKEN: ${{ secrets['SONAR_TOKEN_' + matrix.service.toUpperCase().replace('-', '_')] }}
+          SONAR_TOKEN: ${{ matrix.service == 'user-service' && secrets.SONAR_TOKEN_USER_SERVICE }}
         run: ./gradlew build sonar --info
