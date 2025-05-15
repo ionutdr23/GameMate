@@ -86,6 +86,19 @@ class DOAvatarStorageServiceTest {
     }
 
     @Test
+    void store_nullContentType_throwsException() {
+        MockMultipartFile file = new MockMultipartFile(
+                "avatar", "image.unknown", null, "fake content".getBytes()
+        );
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                storageService.store(file, "user456"));
+
+        assertEquals("Only image uploads are allowed.", exception.getMessage());
+        verifyNoInteractions(mockS3Client);
+    }
+
+    @Test
     void store_ioException_throwsRuntimeException() throws IOException {
         MultipartFile file = mock(MultipartFile.class);
         when(file.isEmpty()).thenReturn(false);

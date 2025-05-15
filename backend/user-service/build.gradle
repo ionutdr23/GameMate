@@ -93,5 +93,8 @@ tasks.named('jacocoTestReport', JacocoReport) {
 sonarqube {
     properties {
         property "sonar.coverage.jacoco.xmlReportPaths", "${buildDir}/reports/jacoco/jacocoTestReport.xml"
+        property "sonar.projectKey", "gamemate-user-service"
+        property "sonar.organization", "ionutdr23"
+        property "sonar.host.url", "https://sonarcloud.io"
     }
 }
