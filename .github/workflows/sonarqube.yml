@@ -13,6 +13,11 @@ jobs:
         service: [user-service]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all history for Sonar blame support
+        run: git fetch --unshallow
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -33,6 +38,9 @@ jobs:
         with:
           name: test-reports
           path: backend/${{ matrix.service }}/build/reports/jacoco/test/
+
+      - name: Debug - Check for coverage report
+        run: ls -la backend/${{ matrix.service }}/build/reports/jacoco/test
         
       - name: Analyze
         working-directory: backend/${{ matrix.service }}
