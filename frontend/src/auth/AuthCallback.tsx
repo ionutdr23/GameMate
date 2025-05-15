@@ -1,19 +1,30 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./useAuth";
+import Loading from "@/components/Loading";
 
 const AuthCallback = () => {
-  const { isLoading, isAuthenticated, error } = useAuth();
+  const { isLoading, isAuthenticated, error, getIdTokenClaims } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) console.log("Authenticated!");
-      else console.log("Not authenticated!");
-    }
-  }, [isLoading, isAuthenticated, navigate]);
+    const handleRedirect = async () => {
+      if (!isLoading && isAuthenticated) {
+        const claims = await getIdTokenClaims();
+        const isNewUser = claims?.["new_user"];
+        if (isNewUser) {
+          navigate("/create_profile");
+        } else {
+          navigate("/profile");
+        }
+      }
+    };
+
+    handleRedirect();
+  }, [isLoading, isAuthenticated, getIdTokenClaims, navigate]);
 
   if (error) return <p className="text-red-400">Error: {error.message}</p>;
-  return <p className="text-white">Processing login...</p>;
+  return <Loading />;
 };
+
 export default AuthCallback;

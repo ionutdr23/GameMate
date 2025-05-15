@@ -8,9 +8,15 @@ import AuthCallback from "./auth/AuthCallback";
 import LandingPage from "./pages/LandingPage";
 import ProfilePage from "./pages/ProfilePage";
 import Feed from "./pages/Feed";
-import Layout from "./components/Layout";
+import MainLayout from "./components/MainLayout";
+import CreateProfilePage from "./pages/CreateProfilePage";
+import { useEffect } from "react";
 
 function App() {
+  useEffect(() => {
+    document.documentElement.classList.add("dark");
+  }, []);
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -18,10 +24,11 @@ function App() {
       {/* Not-Authenticated Routes */}
       <Route path="/auth/callback" element={<AuthCallback />} />
       {/* Authenticated Routes */}
-      <Route path="/" element={<Layout />}>
-        <Route path="/" element={<ProtectedRoute />}>
+      <Route path="/" element={<ProtectedRoute />}>
+        <Route path="/create_profile" element={<CreateProfilePage />} />
+        <Route path="/" element={<MainLayout />}>
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/profile/feed" element={<Feed own />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
           <Route path="/feed" element={<Feed />} />
         </Route>
       </Route>

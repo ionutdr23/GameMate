@@ -1,26 +1,28 @@
 import { useAuth0 } from "@auth0/auth0-react";
+import { clsx, type ClassValue } from "clsx";
+import { useCallback } from "react";
+import { twMerge } from "tailwind-merge";
 
-// This function is used to fetch data from a given URL with an authorization token.
-// It uses the Auth0 library to get the token silently and adds it to the request headers.
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
 export function useFetchWithAuth() {
   const { getAccessTokenSilently } = useAuth0();
 
-  return async function fetchWithAuth(
-    url: string,
-    options: RequestInit = {}
-  ): Promise<Response> {
-    const token = await getAccessTokenSilently();
+  const fetchWithAuth = useCallback(
+    async (path: string, options: RequestInit = {}): Promise<Response> => {
+      const token = await getAccessTokenSilently();
+      const headers = new Headers(options.headers || {});
+      headers.append("Authorization", `Bearer ${token}`);
 
-    const headers = new Headers(options.headers || {});
-    headers.append("Authorization", `Bearer ${token}`);
+      const baseUrl = import.meta.env.VITE_API_URL?.replace(/\/+$/, "") ?? "";
+      const fullUrl = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
 
-    return fetch(url, { ...options, headers });
-  };
-}
+      return fetch(fullUrl, { ...options, headers });
+    },
+    [getAccessTokenSilently]
+  );
 
-// This function is used to combine multiple class names into a single string, filtering out any falsy values (like undefined, null, or false).
-export function cn(
-  ...classes: Array<string | undefined | null | false>
-): string {
-  return classes.filter(Boolean).join(" ");
+  return fetchWithAuth;
 }

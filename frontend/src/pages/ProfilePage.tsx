@@ -1,90 +1,126 @@
-import { Card, CardContent } from "../components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { useProfile } from "@/hooks/useProfile";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useParams } from "react-router-dom";
+import { AvailabilityDialog } from "@/components/modals/AvailabilityDialog";
+import { GameProfilesDialog } from "@/components/modals/GameProfilesDialog";
+import Loading from "@/components/Loading";
 
 const ProfilePage = () => {
-  const profile = {
-    displayName: "DragonSlayer77",
-    avatar: "/avatar.png",
-    bio: "Casual gamer with a love for strategy titles.",
-    country: "Netherlands",
-    city: "Eindhoven",
-    createdAt: new Date("2022-04-01"),
-    availability: [
-      { day: "Monday", from: "18:00", to: "22:00" },
-      { day: "Saturday", from: "14:00", to: "20:00" },
-    ],
-    gameProfiles: [
-      {
-        name: "League of Legends",
-        icon: "/lol.png",
-        skill: "Silver IV",
-        playstyles: ["defensive"],
-        platforms: ["PC"],
-      },
-      {
-        name: "Fortnite",
-        icon: "/fortnite.png",
-        skill: "Gold II",
-        playstyles: ["aggressive", "builder"],
-        platforms: ["PS5"],
-      },
-    ],
-  };
+  const { userId } = useParams();
+  const isOwnProfile = !userId;
+
+  const { profile, isLoading, error } = isOwnProfile
+    ? // eslint-disable-next-line react-hooks/rules-of-hooks
+      useProfile()
+    : // eslint-disable-next-line react-hooks/rules-of-hooks
+      useUserProfile(userId);
+
+  if (isLoading) return <Loading />;
+  if (error || !profile)
+    return <p className="text-center text-destructive">Profile not found.</p>;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <div className="flex space-x-6 items-center">
-        <img
-          src={profile.avatar}
-          alt="Avatar"
-          className="w-28 h-28 rounded-full shadow-md"
-        />
-        <div>
-          <h2 className="text-3xl font-bold">{profile.displayName}</h2>
-          <p className="text-gray-400">{profile.bio}</p>
-          <p>
-            {profile.city}, {profile.country}
-          </p>
-          <p className="text-sm text-gray-500">
-            Joined us in{" "}
-            {profile.createdAt.toLocaleString("default", { month: "long" })}{" "}
-            {profile.createdAt.getFullYear()}
-          </p>
-        </div>
-      </div>
+    <div className="p-8 max-w-4xl mx-auto space-y-10">
+      {/* Profile Header */}
+      <Card>
+        <CardContent className="flex flex-col sm:flex-row sm:items-center sm:space-x-6 space-y-4 sm:space-y-0 p-6">
+          <img
+            src={profile?.avatarUrl}
+            alt="Avatar"
+            className="w-28 h-28 rounded-full shadow-md object-cover"
+          />
+          <div>
+            <h2 className="text-3xl font-bold">{profile?.nickname}</h2>
+            <p className="text-muted-foreground">{profile?.bio}</p>
+            <p className="text-sm text-muted-foreground">{profile?.location}</p>
+            <p className="text-sm text-muted-foreground">
+              Joined in{" "}
+              {profile?.createdAt.toLocaleString("default", {
+                month: "long",
+              })}{" "}
+              {profile?.createdAt.getFullYear()}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="mt-10">
-        <h3 className="text-xl font-semibold mb-2">Availability</h3>
-        <ul className="list-disc ml-5 text-gray-300">
-          {profile.availability.map((slot, i) => (
-            <li key={i}>
-              {slot.day}: {slot.from} - {slot.to}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* Availability */}
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-semibold">Availability</h3>
+            {isOwnProfile && (
+              <AvailabilityDialog
+                initialAvailability={profile?.availability}
+                onSave={(newAvailability) => {
+                  console.log(newAvailability);
+                }}
+              />
+            )}
+          </div>
+          {(profile?.availability?.length ?? 0) > 0 ? (
+            <ul className="list-disc ml-5 text-muted-foreground">
+              {profile?.availability?.map((slot, i) => (
+                <li key={i}>
+                  {slot.day}: {slot.from} – {slot.to}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">No availability set yet.</p>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="mt-10">
-        <h3 className="text-xl font-semibold mb-2">Game Profiles</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {profile.gameProfiles.map((game, i) => (
-            <Card key={i} className="bg-gray-800 text-white">
-              <CardContent className="p-4 space-y-2">
-                <div className="flex items-center space-x-4">
-                  <img src={game.icon} className="w-10 h-10" alt={game.name} />
-                  <h4 className="text-lg font-bold">{game.name}</h4>
-                </div>
-                <p className="text-sm">Skill Level: {game.skill}</p>
-                <p className="text-sm">
-                  Playstyles: {game.playstyles.join(", ")}
-                </p>
-                <p className="text-sm">
-                  Platforms: {game.platforms.join(", ")}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      {/* Game Profiles */}
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl font-semibold">Game Profiles</h3>
+            {isOwnProfile && (
+              <GameProfilesDialog
+                initialProfiles={profile?.gameProfiles}
+                onSave={(updatedProfiles) => {
+                  // Do something with the cleaned list
+                  console.log(updatedProfiles);
+                }}
+              />
+            )}
+          </div>
+          {(profile?.gameProfiles?.length ?? 0) > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {profile?.gameProfiles?.map((game, i) => (
+                <Card key={i}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center space-x-4">
+                      <img
+                        src={game.icon}
+                        className="w-10 h-10 object-contain"
+                        alt={game.name}
+                      />
+                      <h4 className="text-lg font-bold">{game.name}</h4>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Skill Level: {game.skill}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Playstyles: {game.playstyles.join(", ")}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Platforms: {game.platforms.join(", ")}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              No game profiles available yet for this user.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

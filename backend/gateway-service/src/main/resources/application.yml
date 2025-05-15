@@ -4,10 +4,10 @@ spring:
   cloud:
     gateway:
       routes:
-        - id: profile-service
-          uri: ${PROFILE_SERVICE_URL}
+        - id: user-service
+          uri: ${USER_SERVICE_URL}
           predicates:
-            - Path=/api/profile/**
+            - Path=/api/user/**
         - id: social-service
           uri: ${SOCIAL_SERVICE_URL}
           predicates:
@@ -21,6 +21,6 @@ eureka:
   client:
     enabled: true
     serviceUrl:
-      defaultZone: http://eureka-server:8761/eureka
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
   instance:
     prefer-ip-address: true
