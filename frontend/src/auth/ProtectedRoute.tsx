@@ -1,13 +1,40 @@
 import Loading from "@/components/Loading";
 import { useAuth } from "./useAuth";
-import { Navigate, Outlet } from "react-router-dom";
+import { useProfile } from "@/hooks/useProfile";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 
-export const ProtectedRoute = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+interface ProtectedRouteProps {
+  requiredRoles?: string[];
+}
 
-  if (isLoading) return <Loading />;
+export const ProtectedRoute = ({ requiredRoles }: ProtectedRouteProps) => {
+  const { isAuthenticated, isLoading: isAuthLoading, hasAnyRole } = useAuth();
+  const { profile, isLoading: isProfileLoading } = useProfile();
+  const location = useLocation();
 
-  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthLoading || isProfileLoading) {
+    return <Loading />;
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/landing" replace />;
+  }
+
+  const isCreateProfileRoute = location.pathname === "/profile/create";
+
+  if (!profile && !isCreateProfileRoute) {
+    return <Navigate to="/profile/create" replace />;
+  }
+
+  if (profile && isCreateProfileRoute) {
+    return <Navigate to="/profile" replace />;
+  }
+
+  if (requiredRoles && requiredRoles.length > 0) {
+    if (!hasAnyRole(requiredRoles)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+  }
 
   return <Outlet />;
 };

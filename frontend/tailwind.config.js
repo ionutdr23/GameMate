@@ -5,6 +5,13 @@ module.exports = {
     "./src/**/*.{ts,tsx}",
     "./components/**/*.{ts,tsx}",
   ],
-  theme: {},
+  theme: {
+    extend: {
+      colors: {
+        background: "hsl(var(--background))",
+        "secondary-background": "hsl(var(--secondary-background))",
+      },
+    },
+  },
   plugins: [require("tailwindcss-animate")],
 };

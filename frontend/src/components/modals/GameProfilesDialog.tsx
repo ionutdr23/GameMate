@@ -1,5 +1,4 @@
-"use client";
-
+// Fixed and cleaned version of GameProfilesDialog component
 import {
   Dialog,
   DialogTrigger,
@@ -20,20 +19,13 @@ import {
 } from "@/components/ui/select";
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { GameProfile } from "@/types/profile";
-
-const availablePlaystyles = [
-  "Aggressive",
-  "Defensive",
-  "Supportive",
-  "Tactical",
-];
-const availablePlatforms = ["PC", "PlayStation", "Xbox", "Switch", "Mobile"];
+import { GameProfile, GameProfileRequest } from "@/types/profile";
+import { useFetchWithAuth } from "@/lib/utils";
 
 type GameOption = {
   id: string;
   name: string;
-  icon: string;
+  skillLevels: string[];
 };
 
 export function GameProfilesDialog({
@@ -41,31 +33,50 @@ export function GameProfilesDialog({
   onSave,
 }: {
   initialProfiles?: GameProfile[];
-  onSave: (updated: GameProfile[]) => void;
+  onSave: (updated: GameProfileRequest[]) => Promise<void>;
 }) {
   const [profiles, setProfiles] = useState<GameProfile[]>(initialProfiles);
   const [games, setGames] = useState<GameOption[]>([]);
-  const [skillsMap, setSkillsMap] = useState<Record<string, string[]>>({});
+  const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
+  const [availablePlaystyles, setAvailablePlaystyles] = useState<string[]>([]);
+  const fetchWithAuth = useFetchWithAuth();
 
   useEffect(() => {
-    fetch("/user/games")
-      .then((res) => res.json())
-      .then(setGames)
-      .catch(console.error);
-  }, []);
+    const fetchInformation = async () => {
+      try {
+        const [gamesRes, platformsRes, playstylesRes] = await Promise.all([
+          fetchWithAuth("/user/game"),
+          fetchWithAuth("/user/meta/platforms"),
+          fetchWithAuth("/user/meta/playstyles"),
+        ]);
+        const gamesData = await gamesRes.json();
+        setGames(gamesData);
+        setAvailablePlatforms(await platformsRes.json());
+        setAvailablePlaystyles(await playstylesRes.json());
+      } catch (err) {
+        console.error("Failed to fetch information:", err);
+      }
+    };
+    fetchInformation();
+  }, [fetchWithAuth]);
 
-  const fetchSkillsForGame = async (gameId: string) => {
-    if (skillsMap[gameId]) return;
-    const res = await fetch(`/user/games/${gameId}/skill`);
-    const skills = await res.json();
-    setSkillsMap((prev) => ({ ...prev, [gameId]: skills }));
-  };
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateProfile = (index: number, key: keyof GameProfile, value: any) => {
+  const updateProfile = (
+    index: number,
+    key: keyof GameProfile | "game.id" | "game.name" | "game.skillLevels",
+    value: any
+  ) => {
     setProfiles((prev) => {
       const updated = [...prev];
-      updated[index] = { ...updated[index], [key]: value };
+      const profile = { ...updated[index] };
+
+      if (key.startsWith("game.")) {
+        const subKey = key.split(".")[1] as keyof GameProfile["game"];
+        profile.game = { ...profile.game, [subKey]: value };
+      } else {
+        profile[key as keyof GameProfile] = value;
+      }
+
+      updated[index] = profile;
       return updated;
     });
   };
@@ -73,7 +84,13 @@ export function GameProfilesDialog({
   const addProfile = () => {
     setProfiles((prev) => [
       ...prev,
-      { name: "", icon: "", skill: "", playstyles: [], platforms: [] },
+      {
+        id: "",
+        game: { id: "", name: "", skillLevels: [] },
+        skillLevel: "",
+        playstyles: [],
+        platforms: [],
+      },
     ]);
   };
 
@@ -93,15 +110,27 @@ export function GameProfilesDialog({
     updateProfile(index, key, updated);
   };
 
-  const handleSave = () => {
-    const validProfiles = profiles.filter((p) => p.name && p.skill);
-    const unique = Object.values(
-      validProfiles.reduce((acc, p) => {
-        acc[p.name.toLowerCase()] = p;
-        return acc;
-      }, {} as Record<string, GameProfile>)
-    );
-    onSave(unique);
+  const isProfileValid = (p: GameProfile) =>
+    !!p.game.id &&
+    !!p.skillLevel &&
+    p.platforms.length > 0 &&
+    p.playstyles.length > 0;
+
+  const allGamesUsed = games.every((game) =>
+    profiles.some((p) => p.game.id === game.id)
+  );
+
+  const handleSave = async () => {
+    const validProfiles = profiles.filter(isProfileValid);
+    const payload: GameProfileRequest[] = validProfiles.map((p) => ({
+      gameId: p.game.id,
+      skillLevel: p.skillLevel,
+      playstyles: p.playstyles,
+      platforms: p.platforms,
+    }));
+
+    await onSave(payload);
+    window.location.reload();
   };
 
   return (
@@ -121,9 +150,7 @@ export function GameProfilesDialog({
 
         <div className="space-y-6">
           {profiles.map((profile, index) => {
-            const selectedGame = games.find((g) => g.name === profile.name);
-            const gameId = selectedGame?.id;
-            const skillOptions = gameId ? skillsMap[gameId] ?? [] : [];
+            const skillOptions = profile.game.skillLevels || [];
 
             return (
               <div key={index} className="border p-4 rounded-md relative">
@@ -139,15 +166,24 @@ export function GameProfilesDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label className="mb-1">Game</Label>
+                    {!profile.game.id && (
+                      <p className="text-red-500 text-sm mt-1">
+                        Game is required.
+                      </p>
+                    )}
                     <Select
-                      value={profile.name}
-                      onValueChange={(gameName) => {
-                        const game = games.find((g) => g.name === gameName);
+                      value={profile.game.id}
+                      onValueChange={(gameId) => {
+                        const game = games.find((g) => g.id === gameId);
                         if (game) {
-                          updateProfile(index, "name", game.name);
-                          updateProfile(index, "icon", game.icon);
-                          updateProfile(index, "skill", ""); // reset skill
-                          fetchSkillsForGame(game.id);
+                          updateProfile(index, "game.id", game.id);
+                          updateProfile(index, "game.name", game.name);
+                          updateProfile(
+                            index,
+                            "game.skillLevels",
+                            game.skillLevels
+                          );
+                          updateProfile(index, "skillLevel", "");
                         }
                       }}
                     >
@@ -155,22 +191,35 @@ export function GameProfilesDialog({
                         <SelectValue placeholder="Select a game" />
                       </SelectTrigger>
                       <SelectContent>
-                        {games.map((game) => (
-                          <SelectItem key={game.id} value={game.name}>
-                            {game.name}
-                          </SelectItem>
-                        ))}
+                        {games
+                          .filter(
+                            (game) =>
+                              profile.game.id === game.id ||
+                              !profiles.some(
+                                (p, i) => i !== index && p.game.id === game.id
+                              )
+                          )
+                          .map((game) => (
+                            <SelectItem key={game.id} value={game.id}>
+                              {game.name}
+                            </SelectItem>
+                          ))}
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
                     <Label className="mb-1">Skill Level</Label>
+                    {!profile.skillLevel && (
+                      <p className="text-red-500 text-sm mt-1">
+                        Skill level is required.
+                      </p>
+                    )}
                     <Select
-                      value={profile.skill}
+                      value={profile.skillLevel}
                       disabled={!skillOptions.length}
                       onValueChange={(value) =>
-                        updateProfile(index, "skill", value)
+                        updateProfile(index, "skillLevel", value)
                       }
                     >
                       <SelectTrigger>
@@ -188,6 +237,11 @@ export function GameProfilesDialog({
 
                   <div>
                     <Label>Playstyles</Label>
+                    {profile.playstyles.length === 0 && (
+                      <p className="text-red-500 text-sm mt-1">
+                        Select at least one playstyle.
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2 mt-1">
                       {availablePlaystyles.map((style) => (
                         <Button
@@ -211,6 +265,11 @@ export function GameProfilesDialog({
 
                   <div>
                     <Label>Platforms</Label>
+                    {profile.platforms.length === 0 && (
+                      <p className="text-red-500 text-sm mt-1">
+                        Select at least one platform.
+                      </p>
+                    )}
                     <div className="flex flex-wrap gap-2 mt-1">
                       {availablePlatforms.map((platform) => (
                         <Button
@@ -235,13 +294,23 @@ export function GameProfilesDialog({
               </div>
             );
           })}
-          <Button onClick={addProfile} variant="secondary">
+
+          <Button
+            onClick={addProfile}
+            variant="secondary"
+            disabled={allGamesUsed}
+          >
             Add Game Profile
           </Button>
         </div>
 
         <DialogFooter className="pt-4">
-          <Button onClick={handleSave}>Save</Button>
+          <Button
+            onClick={handleSave}
+            disabled={profiles.some((p) => !isProfileValid(p))}
+          >
+            Save
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -11,9 +11,20 @@ export type Profile = {
 export type AvailabilitySlot = { day: string; from: string; to: string };
 
 export type GameProfile = {
-  name: string;
-  icon: string;
-  skill: string;
+  id: string;
+  game: {
+    id: string;
+    name: string;
+    skillLevels: string[];
+  };
+  skillLevel: string;
+  playstyles: string[];
+  platforms: string[];
+};
+
+export type GameProfileRequest = {
+  gameId: string;
+  skillLevel: string;
   playstyles: string[];
   platforms: string[];
 };

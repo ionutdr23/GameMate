@@ -3,13 +3,17 @@ spring:
     name: gateway-service
   cloud:
     gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
       routes:
         - id: user-service
-          uri: ${USER_SERVICE_URL}
+          uri: lb://user-service
           predicates:
             - Path=/api/user/**
         - id: social-service
-          uri: ${SOCIAL_SERVICE_URL}
+          uri: lb://social-service
           predicates:
             - Path=/api/social/**
   security:
@@ -17,10 +21,15 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI}
+management:
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
 eureka:
   client:
     enabled: true
-    serviceUrl:
+    service-url:
       defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE}
   instance:
     prefer-ip-address: true
