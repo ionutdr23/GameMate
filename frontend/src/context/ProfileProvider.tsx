@@ -15,9 +15,17 @@ export const ProfileProvider = ({
 
   const refetch = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
+
     try {
-      const res = await fetchWithAuth("/user/profile");
-      if (!res.ok) throw new Error("Failed to load profile");
+      const res = await fetchWithAuth("/user/profile/me");
+      if (res.status === 404) {
+        setProfile(null);
+        return;
+      }
+      if (!res.ok) {
+        throw new Error("Failed to load profile");
+      }
       const data = await res.json();
       const parsed = {
         ...data,
@@ -26,11 +34,48 @@ export const ProfileProvider = ({
       setProfile(parsed);
     } catch (err) {
       setError((err as Error).message);
+      setProfile(null);
     } finally {
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const uploadAvatar = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetchWithAuth("/user/profile/avatar", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to upload avatar");
+    }
+
+    const data = await res.json();
+    await refetch();
+    return data.avatarUrl as string;
+  };
+
+  const updateProfile = async (data: Partial<Profile>) => {
+    const res = await fetchWithAuth("/user/profile", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      throw new Error("Failed to update profile");
+    }
+
+    const updatedProfile = await res.json();
+    setProfile({
+      ...updatedProfile,
+      createdAt: new Date(updatedProfile.createdAt),
+    });
+  };
 
   useEffect(() => {
     refetch();
@@ -41,6 +86,8 @@ export const ProfileProvider = ({
     isLoading,
     error,
     refetch,
+    uploadAvatar,
+    updateProfile,
   };
 
   return (

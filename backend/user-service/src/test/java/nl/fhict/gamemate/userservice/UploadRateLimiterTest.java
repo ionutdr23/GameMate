@@ -3,6 +3,8 @@ package nl.fhict.gamemate.userservice;
 import nl.fhict.gamemate.userservice.service.UploadRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -12,6 +14,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class UploadRateLimiterTest {
 
     private UploadRateLimiter rateLimiter;

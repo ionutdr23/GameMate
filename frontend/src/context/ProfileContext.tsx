@@ -6,6 +6,8 @@ export type ProfileContextType = {
   isLoading: boolean;
   error: string | null;
   refetch: () => void;
+  uploadAvatar: (file: File) => Promise<string>;
+  updateProfile: (data: Partial<Profile>) => Promise<void>;
 };
 
 export const ProfileContext = createContext<ProfileContextType | undefined>(

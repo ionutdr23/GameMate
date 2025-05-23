@@ -13,6 +13,7 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
@@ -49,7 +50,7 @@ public class DOAvatarStorageService {
             if (file.isEmpty()) throw new IllegalArgumentException("File is empty");
             String contentType = file.getContentType();
             if (contentType == null || !contentType.startsWith("image/")) {
-                throw new IllegalArgumentException("Only image uploads are allowed.");
+                throw new IllegalArgumentException("Only image uploads are allowed");
             }
 
             rateLimiter.checkRate(userId);
@@ -73,6 +74,21 @@ public class DOAvatarStorageService {
 
         } catch (IOException e) {
             throw new RuntimeException("Failed to upload avatar to DigitalOcean Space", e);
+        }
+    }
+
+    public void delete(String url) {
+        try {
+            URI uri = URI.create(url);
+            String path = uri.getPath();
+            String objectKey = path.startsWith("/") ? path.substring(1 + props.getBucket().length() + 1) : path;
+
+            client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(props.getBucket())
+                    .key(objectKey)
+                    .build());
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to delete avatar from DigitalOcean Space", e);
         }
     }
 }

@@ -2,19 +2,28 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { AuthButton } from "../auth/AuthButton";
 import { useProfile } from "@/hooks/useProfile";
+import ProfilePicture from "./ProfilePicture";
+import { useAuth } from "@/auth/useAuth";
 
 const NavBar = () => {
   const { profile } = useProfile();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const { hasRole } = useAuth();
 
-  const navLinks: { to: string; label: string }[] = [
-    { to: "/feed", label: "Feed" },
+  const gamerLinks: { to: string; label: string }[] = [
+    { to: "/", label: "My Feed" },
   ];
+  const moderatorLinks: { to: string; label: string }[] = [
+    { to: "/games", label: "Game Manager" },
+  ];
+  const navLinks = hasRole("Moderator")
+    ? [...gamerLinks, ...moderatorLinks]
+    : gamerLinks;
 
   return (
-    <header className="bg-background border-b shadow-sm">
-      <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between h-16 sm:h-20">
+    <div className="bg-secondary-background">
+      <nav className="h-20 flex items-center justify-between mx-5 px-4 sm:px-6 py-2 lg:mx-32 md:mx-16 sm:mx-8">
         {/* Logo */}
         <img
           src="https://gamemate-assets.ams3.cdn.digitaloceanspaces.com/gamemate-assets/icons/logo.png"
@@ -52,22 +61,13 @@ const NavBar = () => {
 
         {/* Desktop user section */}
         <div className="hidden sm:flex items-center gap-4">
-          <img
-            src={
-              profile?.avatarUrl ||
-              "https://gamemate-assets.ams3.cdn.digitaloceanspaces.com/gamemate-assets/avatars/blank-profile-picture.png"
-            }
-            alt="User Avatar"
-            className="w-10 h-10 rounded-full object-cover cursor-pointer"
-            onClick={() => navigate("/profile")}
-          />
-          <AuthButton />
+          <ProfilePicture />
         </div>
       </nav>
 
       {/* Mobile menu */}
       {isOpen && (
-        <div className="sm:hidden px-4 pb-4 pt-2 space-y-2 border-t bg-background text-foreground border-border">
+        <div className="sm:hidden px-4 pb-4 pt-2 space-y-2 text-foreground border-border text-center">
           <ul className="space-y-2">
             {navLinks.map(({ to, label }) => (
               <li key={to}>
@@ -87,7 +87,7 @@ const NavBar = () => {
               </li>
             ))}
           </ul>
-          <div className="pt-3 border-t border-border flex items-center gap-3">
+          <div className="flex justify-center items-center pt-3 gap-5">
             <img
               src={
                 profile?.avatarUrl &&
@@ -104,7 +104,7 @@ const NavBar = () => {
           </div>
         </div>
       )}
-    </header>
+    </div>
   );
 };
 
