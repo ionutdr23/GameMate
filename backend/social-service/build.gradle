@@ -107,12 +107,11 @@ sonarqube {
             **/config/**,
             **/controller/**,
             **/dto/**,
-            **/exception/**,
             **/model/**,
             **/repository/**,
             **/SocialServiceApplication.java
         """
-		property "sonar.projectKey", "gamemate-social-service"
+		property "sonar.projectKey", "social-service"
 		property "sonar.organization", "ionutdr23"
 		property "sonar.host.url", "https://sonarcloud.io"
 	}
