@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { useFetchWithAuth } from "@/lib/utils";
+import { useAxiosWithAuth } from "@/lib/utils";
 import { Profile } from "@/types/profile";
 
 export function useUserProfile(profileId: string | undefined) {
-  const fetchWithAuth = useFetchWithAuth();
+  const axiosInstance = useAxiosWithAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,9 +12,9 @@ export function useUserProfile(profileId: string | undefined) {
     if (!profileId) return;
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(`/user/profile/${profileId}`);
-      if (!res.ok) throw new Error("Profile not found");
-      const data = await res.json();
+      const res = await axiosInstance.get(`/user/profile/${profileId}`);
+      if (res.status === 404) throw new Error("Profile not found");
+      const data = res.data;
       const parsed = {
         ...data,
         createdAt: new Date(data.createdAt),
@@ -26,7 +26,7 @@ export function useUserProfile(profileId: string | undefined) {
     } finally {
       setIsLoading(false);
     }
-  }, [profileId, fetchWithAuth]);
+  }, [profileId, axiosInstance]);
 
   useEffect(() => {
     fetchProfile();

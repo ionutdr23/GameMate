@@ -1,12 +1,12 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useDebounce } from "use-debounce";
+import { useQuery } from "@tanstack/react-query";
 import { profileSchema } from "@/validation/profile";
-
 import { useProfile } from "@/hooks/useProfile";
+import { fetchCountryList } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { Button } from "@/components/ui/button";
@@ -19,67 +19,99 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { fetchCountryList, useFetchWithAuth } from "@/lib/utils";
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export default function UpdateProfilePage() {
-  const fetchWithAuth = useFetchWithAuth();
-  const { uploadAvatar, updateProfile } = useProfile();
+  const { uploadAvatar, updateProfile, checkNicknameAvailability } =
+    useProfile();
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [countries, setCountries] = useState<{ name: string; flag: string }[]>(
-    []
-  );
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [checking, setChecking] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const {
     register,
     handleSubmit,
     control,
-    watch,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
+    defaultValues: {
+      nickname: "",
+      bio: "",
+      location: "",
+    },
   });
 
-  const nickname = watch("nickname");
+  const nickname = useWatch({ control, name: "nickname" });
+  const [debouncedNickname] = useDebounce(nickname, 200);
+
+  const { data: countries = [], isLoading: loadingCountries } = useQuery({
+    queryKey: ["countries"],
+    queryFn: fetchCountryList,
+    staleTime: 1000 * 60 * 60,
+  });
+
+  const [checking, setChecking] = useState(false);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
+  const [nicknameAvailable, setNicknameAvailable] = useState<boolean | null>(
+    null
+  );
 
   useEffect(() => {
-    const fetchCountries = async () => {
-      setCountries(await fetchCountryList());
-    };
-    fetchCountries();
-  }, []);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!nickname || nickname.trim().length < 3) {
-      setAvailable(null);
-      return;
-    }
-
-    const delay = setTimeout(async () => {
-      setChecking(true);
-      try {
-        const res = await fetchWithAuth(
-          `/user/profile/check-nickname?nickname=${encodeURIComponent(
-            nickname
-          )}`
-        );
-        const data = await res.json();
-        setAvailable(data.available);
-      } catch (err) {
-        console.error("Nickname check failed", err);
-        setAvailable(null);
-      } finally {
-        setChecking(false);
+    const checkNickname = async () => {
+      if (debouncedNickname.trim().length < 3) {
+        clearErrors("nickname");
+        setNicknameAvailable(null);
+        setNicknameError(null);
+        return;
       }
-    }, 400);
 
-    return () => clearTimeout(delay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nickname]);
+      setChecking(true);
+      setNicknameError(null);
+      setNicknameAvailable(null);
+
+      try {
+        const available = await checkNicknameAvailability(debouncedNickname);
+        if (cancelled) return;
+
+        setNicknameAvailable(available);
+        if (!available) {
+          setError("nickname", {
+            type: "manual",
+            message: "Nickname already taken",
+          });
+        } else {
+          clearErrors("nickname");
+        }
+      } catch {
+        if (!cancelled) {
+          setNicknameError("Could not check nickname");
+          setError("nickname", {
+            type: "manual",
+            message: "Could not check nickname",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setChecking(false);
+        }
+      }
+    };
+
+    checkNickname();
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedNickname, checkNicknameAvailability, setError, clearErrors]);
+
+  const avatarPreviewUrl = useMemo(() => {
+    return avatarFile ? URL.createObjectURL(avatarFile) : null;
+  }, [avatarFile]);
 
   const handleAvatarUpload = async () => {
     if (!avatarFile) return;
@@ -94,8 +126,8 @@ export default function UpdateProfilePage() {
     try {
       await updateProfile({
         nickname: data.nickname,
-        bio: data.bio || undefined,
-        location: data.location || undefined,
+        bio: data.bio || "",
+        location: data.location || "",
       });
 
       setSuccess(true);
@@ -107,7 +139,7 @@ export default function UpdateProfilePage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
-      <Card className="rounded-2xl w-full shadow-xl text-card-foreground container max-w-2xl mx-auto">
+      <Card className="rounded-2xl w-full shadow-xl max-w-2xl">
         <CardContent className="p-8 space-y-6">
           <h2 className="text-3xl font-bold text-center">
             Update Your Profile
@@ -131,10 +163,10 @@ export default function UpdateProfilePage() {
                 <span className="text-primary font-medium">Browse</span>
               </div>
             </div>
-            {avatarFile && (
+            {avatarPreviewUrl && (
               <div className="flex justify-center pt-2">
                 <img
-                  src={URL.createObjectURL(avatarFile)}
+                  src={avatarPreviewUrl}
                   alt="Selected avatar"
                   className="w-24 h-24 rounded-full border border-border object-cover shadow-md"
                 />
@@ -159,20 +191,18 @@ export default function UpdateProfilePage() {
                   Checking availability...
                 </p>
               )}
-              {available === true && (
+              {nicknameAvailable === true && !errors.nickname && (
                 <p className="text-sm text-green-600">
                   ✓ Nickname is available
-                </p>
-              )}
-              {available === false && (
-                <p className="text-sm text-destructive">
-                  ✗ Nickname already taken
                 </p>
               )}
               {errors.nickname && (
                 <p className="text-sm text-destructive">
                   {errors.nickname.message}
                 </p>
+              )}
+              {nicknameError && (
+                <p className="text-sm text-destructive">{nicknameError}</p>
               )}
             </div>
 
@@ -192,21 +222,35 @@ export default function UpdateProfilePage() {
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value}>
                     <SelectTrigger id="location" className="w-full">
-                      <SelectValue placeholder="Select your country" />
+                      <SelectValue
+                        placeholder="Select your country"
+                        translate="no"
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {countries.map((country) => (
-                        <SelectItem key={country.name} value={country.name}>
-                          <div className="flex items-center gap-2">
-                            <img
-                              src={country.flag}
-                              alt={`${country.name} flag`}
-                              className="w-5 h-4 rounded-sm object-cover"
-                            />
-                            <span>{country.name}</span>
-                          </div>
+                      {loadingCountries ? (
+                        <SelectItem value="-" disabled>
+                          Loading...
                         </SelectItem>
-                      ))}
+                      ) : (
+                        countries.map((country) => (
+                          <SelectItem
+                            key={country.name}
+                            value={country.name}
+                            translate="no"
+                          >
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={country.flag}
+                                alt={`${country.name} flag`}
+                                className="w-5 h-4 rounded-sm object-cover"
+                                loading="lazy"
+                              />
+                              <span>{country.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 )}
@@ -217,16 +261,13 @@ export default function UpdateProfilePage() {
                 </p>
               )}
             </div>
+
             {success && (
               <p className="text-center text-green-600 font-medium">
                 ✓ Profile updated successfully
               </p>
             )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isSubmitting || available === false}
-            >
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </form>

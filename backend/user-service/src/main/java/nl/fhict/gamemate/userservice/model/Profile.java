@@ -1,5 +1,6 @@
 package nl.fhict.gamemate.userservice.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
@@ -70,13 +71,14 @@ public class Profile {
         updatedAt = LocalDateTime.now();
     }
 
-    @ManyToMany
+    @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "friends",
             joinColumns = @JoinColumn(name = "profile_id"),
             inverseJoinColumns = @JoinColumn(name = "friend_id")
     )
     @Builder.Default
+    @JsonIgnoreProperties({"friends", "gameProfiles"})
     private Set<Profile> friends = new HashSet<>();
 
     @OneToMany(mappedBy = "profile", cascade = CascadeType.ALL, orphanRemoval = true)

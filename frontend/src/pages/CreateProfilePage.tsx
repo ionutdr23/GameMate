@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useEffect, useState, useMemo } from "react";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
-import { CreateProfileFormValues, createProfileSchema } from "@/lib/schemas";
-import { fetchCountryList, useFetchWithAuth } from "../lib/utils";
+import { ProfileFormValues, profileSchema } from "@/validation/profile";
+import { fetchCountryList } from "@/lib/utils";
+import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -24,92 +25,99 @@ type Country = {
 
 export default function CreateProfile() {
   const navigate = useNavigate();
+  const { checkNicknameAvailability, createProfile } = useProfile();
 
   const [countries, setCountries] = useState<Country[]>([]);
-
-  useEffect(() => {
-    const fetchCountries = async () => {
-      setCountries(await fetchCountryList());
-    };
-    fetchCountries();
-  }, []);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [available, setAvailable] = useState<boolean | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [nicknameError, setNicknameError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     control,
-    watch,
+    setError,
+    clearErrors,
     formState: { errors, isSubmitting },
-  } = useForm<CreateProfileFormValues>({
-    resolver: zodResolver(createProfileSchema),
+  } = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
   });
-  const nickname = watch("nickname");
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const fetchWithAuth = useFetchWithAuth();
 
-  // Debounced nickname availability check
+  const nickname = useWatch({ control, name: "nickname" });
+
+  useEffect(() => {
+    const fetchCountriesAsync = async () => {
+      const data = await fetchCountryList();
+      setCountries(data);
+    };
+    fetchCountriesAsync();
+  }, []);
+
+  // Debounced nickname check
   useEffect(() => {
     if (!nickname || nickname.trim().length < 3) {
+      clearErrors("nickname");
       setAvailable(null);
+      setNicknameError(null);
       return;
     }
 
-    const delay = setTimeout(async () => {
+    let cancelled = false;
+
+    const check = async () => {
       setChecking(true);
+      setAvailable(null);
+      setNicknameError(null);
+
       try {
-        const res = await fetchWithAuth(
-          `/user/profile/check-nickname?nickname=${encodeURIComponent(
-            nickname
-          )}`
-        );
-        const data = await res.json();
-        setAvailable(data.available);
-      } catch (err) {
-        console.error("Nickname check failed", err);
-        setAvailable(null);
+        const isAvailable = await checkNicknameAvailability(nickname);
+        if (cancelled) return;
+
+        setAvailable(isAvailable);
+        if (!isAvailable) {
+          setError("nickname", {
+            type: "manual",
+            message: "Nickname already taken",
+          });
+        } else {
+          clearErrors("nickname");
+        }
+      } catch {
+        if (!cancelled) {
+          setNicknameError("Could not check nickname");
+          setError("nickname", {
+            type: "manual",
+            message: "Could not check nickname",
+          });
+        }
       } finally {
-        setChecking(false);
+        if (!cancelled) setChecking(false);
       }
-    }, 400);
+    };
 
-    return () => clearTimeout(delay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nickname]);
+    const delay = setTimeout(check, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(delay);
+    };
+  }, [nickname, checkNicknameAvailability, setError, clearErrors]);
 
-  // Submission
-  const onSubmit = async (data: CreateProfileFormValues) => {
+  const avatarPreviewUrl = useMemo(() => {
+    return avatarFile ? URL.createObjectURL(avatarFile) : null;
+  }, [avatarFile]);
+
+  const onSubmit = async (data: ProfileFormValues) => {
     if (available === false) {
       alert("Nickname is already taken.");
       return;
     }
 
     try {
-      await fetchWithAuth("/user/profile", {
-        method: "POST",
-        body: JSON.stringify(data),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (avatarFile) {
-        const formData = new FormData();
-        formData.append("file", avatarFile);
-
-        const res = await fetchWithAuth("/user/profile/avatar", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!res.ok) {
-          console.warn("Avatar upload failed", await res.text());
-        }
-      }
-
+      await createProfile(data, avatarFile ?? undefined);
       navigate("/profile", { replace: true });
     } catch (err) {
       console.error(err);
-      alert("Profile creation failed");
     }
   };
 
@@ -122,7 +130,7 @@ export default function CreateProfile() {
           </h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Avatar */}
+            {/* Avatar Upload */}
             <div className="space-y-2">
               <Label htmlFor="avatar">Avatar</Label>
               <div className="relative w-full">
@@ -133,17 +141,17 @@ export default function CreateProfile() {
                   onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
                   className="absolute inset-0 opacity-0 cursor-pointer z-10"
                 />
-                <div className="flex items-center justify-between px-4 py-2 border border-input bg-input text-foreground rounded-md text-sm transition-colors">
+                <div className="flex items-center justify-between px-4 py-2 border border-input bg-input text-foreground rounded-md text-sm">
                   <span className="truncate text-muted-foreground">
                     {avatarFile?.name ?? "No file selected"}
                   </span>
                   <span className="text-primary font-medium">Browse</span>
                 </div>
               </div>
-              {avatarFile && (
+              {avatarPreviewUrl && (
                 <div className="flex justify-center pt-2">
                   <img
-                    src={URL.createObjectURL(avatarFile)}
+                    src={avatarPreviewUrl}
                     alt="Selected avatar"
                     className="w-24 h-24 rounded-full border border-border object-cover shadow-md"
                   />
@@ -157,6 +165,7 @@ export default function CreateProfile() {
               <Input
                 id="nickname"
                 placeholder="GamerTag123"
+                className="bg-background"
                 {...register("nickname")}
               />
               {checking && (
@@ -164,14 +173,9 @@ export default function CreateProfile() {
                   Checking availability...
                 </p>
               )}
-              {available === true && (
+              {available === true && !errors.nickname && (
                 <p className="text-sm text-green-600">
                   ✓ Nickname is available
-                </p>
-              )}
-              {available === false && (
-                <p className="text-sm text-destructive">
-                  ✗ Nickname already taken
                 </p>
               )}
               {errors.nickname && (
@@ -179,31 +183,49 @@ export default function CreateProfile() {
                   {errors.nickname.message}
                 </p>
               )}
+              {nicknameError && (
+                <p className="text-sm text-destructive">{nicknameError}</p>
+              )}
             </div>
 
             {/* Bio */}
             <div className="space-y-2">
               <Label htmlFor="bio">Bio</Label>
-              <Textarea id="bio" rows={4} {...register("bio")} />
+              <Textarea
+                id="bio"
+                rows={4}
+                {...register("bio")}
+                className="bg-background"
+              />
               {errors.bio && (
                 <p className="text-sm text-destructive">{errors.bio.message}</p>
               )}
             </div>
 
             {/* Country */}
-            <div className="space-y-2 w-full">
+            <div className="space-y-2">
               <Label htmlFor="location">Country</Label>
               <Controller
                 name="location"
                 control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id="location">
-                      <SelectValue placeholder="Select your country" />
+                    <SelectTrigger
+                      id="location"
+                      className="bg-background w-full"
+                    >
+                      <SelectValue
+                        placeholder="Select your country"
+                        translate="no"
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {countries.map((country) => (
-                        <SelectItem key={country.name} value={country.name}>
+                        <SelectItem
+                          key={country.name}
+                          value={country.name}
+                          translate="no"
+                        >
                           <div className="flex items-center gap-2">
                             <img
                               src={country.flag}

@@ -3,6 +3,7 @@ package nl.fhict.gamemate.userservice;
 import jakarta.persistence.EntityNotFoundException;
 import nl.fhict.gamemate.userservice.dto.GameProfileRequest;
 import nl.fhict.gamemate.userservice.dto.ProfileRequest;
+import nl.fhict.gamemate.userservice.dto.ProfileResponse;
 import nl.fhict.gamemate.userservice.model.*;
 import nl.fhict.gamemate.userservice.repository.GameProfileRepository;
 import nl.fhict.gamemate.userservice.repository.GameRepository;
@@ -12,9 +13,13 @@ import nl.fhict.gamemate.userservice.service.ProfileService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static nl.fhict.gamemate.userservice.service.ProfileService.DEFAULT_AVATAR_URL;
 import static org.junit.jupiter.api.Assertions.*;
@@ -75,12 +80,14 @@ class ProfileServiceTest {
     void uploadAvatar_successfulUpload_updatesProfile() {
         MultipartFile mockFile = mock(MultipartFile.class);
         Profile profile = new Profile();
+        UUID profileId = UUID.randomUUID();
+        profile.setId(profileId);
         profile.setAvatarUrl(DEFAULT_AVATAR_URL);
         String userId = "user123";
-        String uploadedUrl = "https://cdn.space/avatar/user123.jpg";
+        String uploadedUrl = "https://cdn.space/avatar/" + profileId + ".jpg";
 
         when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(profile));
-        when(avatarStorageService.store(mockFile, userId)).thenReturn(uploadedUrl);
+        when(avatarStorageService.store(mockFile, profileId)).thenReturn(uploadedUrl);
 
         String result = profileService.uploadAvatar(userId, mockFile);
 
@@ -93,16 +100,18 @@ class ProfileServiceTest {
     void uploadAvatar_deletesOldAvatar_ifNotDefault() {
         MultipartFile mockFile = mock(MultipartFile.class);
         Profile profile = new Profile();
-        profile.setAvatarUrl("https://cdn.space/avatar/old-user123.jpg");
+        UUID profileId = UUID.randomUUID();
+        profile.setId(profileId);
+        profile.setAvatarUrl("https://cdn.space/avatar/old-" + profileId + ".jpg");
         String userId = "user123";
-        String newUrl = "https://cdn.space/avatar/new-user123.jpg";
+        String newUrl = "https://cdn.space/avatar/new-" + profileId + ".jpg";
 
         when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(profile));
-        when(avatarStorageService.store(mockFile, userId)).thenReturn(newUrl);
+        when(avatarStorageService.store(mockFile, profileId)).thenReturn(newUrl);
 
         String result = profileService.uploadAvatar(userId, mockFile);
 
-        verify(avatarStorageService).delete("https://cdn.space/avatar/old-user123.jpg");
+        verify(avatarStorageService).delete("https://cdn.space/avatar/old-" + profileId + ".jpg");
         assertEquals(newUrl, result);
         verify(profileRepository).save(profile);
     }
@@ -111,12 +120,14 @@ class ProfileServiceTest {
     void uploadAvatar_doesNotDeleteIfDefaultAvatar() {
         MultipartFile mockFile = mock(MultipartFile.class);
         Profile profile = new Profile();
+        UUID profileId = UUID.randomUUID();
+        profile.setId(profileId);
         profile.setAvatarUrl(DEFAULT_AVATAR_URL);
         String userId = "user123";
-        String newUrl = "https://cdn.space/avatar/new-user123.jpg";
+        String newUrl = "https://cdn.space/avatar/new-" + profileId + ".jpg";
 
         when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(profile));
-        when(avatarStorageService.store(mockFile, userId)).thenReturn(newUrl);
+        when(avatarStorageService.store(mockFile, profileId)).thenReturn(newUrl);
 
         String result = profileService.uploadAvatar(userId, mockFile);
 
@@ -207,6 +218,29 @@ class ProfileServiceTest {
         assertEquals("updated bio", result.getBio());
         assertEquals("updated location", result.getLocation());
         verify(profileRepository).save(profile);
+    }
+
+    @Test
+    void updateProfile_throwsIfNicknameAlreadyTaken() {
+        String userId = "auth0|abc";
+        String newNickname = "TakenNick";
+
+        Profile existingProfile = new Profile();
+        existingProfile.setUserId(userId);
+        existingProfile.setNickname("OldNick");
+
+        ProfileRequest request = ProfileRequest.builder()
+                .nickname(newNickname)
+                .bio("New bio")
+                .location("New location")
+                .build();
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(existingProfile));
+        when(profileRepository.existsByNicknameIgnoreCase(newNickname)).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> profileService.updateProfile(userId, request));
+
+        verify(profileRepository, never()).save(any());
     }
 
     @Test
@@ -434,6 +468,88 @@ class ProfileServiceTest {
         when(gameProfileRepository.findById(gameProfileId)).thenReturn(Optional.of(unrelated));
 
         assertThrows(IllegalArgumentException.class, () -> profileService.deleteGameProfile(userId, gameProfileId));
+    }
+
+    @Test
+    void searchProfiles_returnsFriendsFirst_thenOthers_limitedTo20() {
+        String currentUserId = "auth0|abc";
+        UUID currentUserProfileId = UUID.randomUUID();
+        Profile currentUser = Profile.builder()
+                .id(currentUserProfileId)
+                .userId(currentUserId)
+                .nickname("CurrentUser")
+                .build();
+
+        List<Profile> friends = IntStream.range(0, 3)
+                .mapToObj(i -> Profile.builder()
+                        .id(UUID.randomUUID())
+                        .nickname("Friend" + i)
+                        .avatarUrl("url" + i)
+                        .build())
+                .toList();
+
+        currentUser.setFriends(new HashSet<>(friends));
+
+        List<Profile> others = IntStream.range(0, 30)
+                .mapToObj(i -> Profile.builder()
+                        .id(UUID.randomUUID())
+                        .nickname("Other" + i)
+                        .avatarUrl("urlO" + i)
+                        .build())
+                .toList();
+
+        List<Profile> combined = Stream.concat(friends.stream(), others.stream()).collect(Collectors.toList());
+
+        when(profileRepository.findByUserId(currentUserId)).thenReturn(Optional.of(currentUser));
+        when(profileRepository.searchByNickname(anyString(), eq(currentUserId), any(Pageable.class)))
+                .thenReturn(combined);
+
+        List<ProfileResponse> results = profileService.searchProfiles("abc", currentUserId);
+
+        assertEquals(20, results.size());
+
+        List<ProfileResponse> firstThree = results.subList(0, 3);
+        assertTrue(firstThree.stream().allMatch(ProfileResponse::isFriend));
+
+        List<ProfileResponse> rest = results.subList(3, results.size());
+        assertTrue(rest.stream().noneMatch(ProfileResponse::isFriend));
+
+        assertEquals("Friend0", results.get(0).getNickname());
+    }
+
+    @Test
+    void searchProfiles_excludesSelfFromResults() {
+        String userId = "auth0|me";
+        UUID profileId = UUID.randomUUID();
+        Profile me = Profile.builder()
+                .id(profileId)
+                .userId(userId)
+                .nickname("Self")
+                .build();
+        me.setFriends(Set.of());
+
+        Profile selfInSearch = Profile.builder()
+                .id(profileId) // same UUID as self
+                .nickname("Self")
+                .userId(userId)
+                .build();
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(me));
+        when(profileRepository.searchByNickname(anyString(), eq(userId), any(Pageable.class)))
+                .thenReturn(List.of(selfInSearch));
+
+        List<ProfileResponse> results = profileService.searchProfiles("Self", userId);
+
+        assertTrue(results.isEmpty());
+    }
+
+    @Test
+    void searchProfiles_throwsWhenUserNotFound() {
+        when(profileRepository.findByUserId("missing")).thenReturn(Optional.empty());
+
+        assertThrows(RuntimeException.class, () ->
+                profileService.searchProfiles("nick", "missing")
+        );
     }
 }
 

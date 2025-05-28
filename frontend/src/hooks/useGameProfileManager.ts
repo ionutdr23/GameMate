@@ -1,8 +1,8 @@
-import { useFetchWithAuth } from "@/lib/utils";
+import { useAxiosWithAuth } from "@/lib/utils";
 import { GameProfile, GameProfileRequest } from "@/types/profile";
 
 export function useGameProfileManager(existing: GameProfile[] = []) {
-  const fetchWithAuth = useFetchWithAuth();
+  const axiosInstance = useAxiosWithAuth();
 
   const syncProfiles = async (updated: GameProfileRequest[]) => {
     const toCreate = updated.filter(
@@ -25,23 +25,13 @@ export function useGameProfileManager(existing: GameProfile[] = []) {
 
     await Promise.all([
       ...toCreate.map((profile) =>
-        fetchWithAuth("/user/profile/game", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(profile),
-        })
+        axiosInstance.post("/user/profile/game", profile)
       ),
       ...toUpdate.map((profile) =>
-        fetchWithAuth("/user/profile/game", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(profile),
-        })
+        axiosInstance.put("/user/profile/game", profile)
       ),
       ...toDelete.map((profile) =>
-        fetchWithAuth(`/user/profile/game/${profile.id}`, {
-          method: "DELETE",
-        })
+        axiosInstance.delete(`/user/profile/game/${profile.id}`)
       ),
     ]);
   };

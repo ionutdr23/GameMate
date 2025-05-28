@@ -1,10 +1,6 @@
 import { Routes, Route, Outlet } from "react-router-dom";
-
-// Authentication
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import AuthCallback from "./auth/AuthCallback";
-
-// Pages
 import LandingPage from "./pages/LandingPage";
 import ProfilePage from "./pages/ProfilePage";
 import SettingsPage from "./pages/SettingsPage";
@@ -16,10 +12,13 @@ import UpdateProfilePage from "./pages/UpdateProfilePage";
 import { ProfileProvider } from "./context/ProfileProvider";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { UnauthorizedPage } from "./pages/UnauthorizedPage";
+import { Toaster } from "sonner";
+import FriendsPage from "./pages/FriendsPage";
 
 function App() {
   return (
     <ProfileProvider>
+      <Toaster position="top-center" richColors closeButton theme="system" />
       <Routes>
         {/* Public Routes */}
         <Route path="/landing" element={<LandingPage />} />
@@ -34,6 +33,7 @@ function App() {
               <Route path="edit" element={<UpdateProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
+            <Route path="friends" element={<FriendsPage />} />
             <Route path="/" element={<Feed />} />
           </Route>
         </Route>

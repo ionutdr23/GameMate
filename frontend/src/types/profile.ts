@@ -1,14 +1,12 @@
 export type Profile = {
+  id: string;
   nickname: string;
   avatarUrl: string;
   bio?: string;
   location?: string;
   createdAt: Date;
-  availability?: Array<AvailabilitySlot>;
   gameProfiles?: Array<GameProfile>;
 };
-
-export type AvailabilitySlot = { day: string; from: string; to: string };
 
 export type GameProfile = {
   id: string;
@@ -27,4 +25,11 @@ export type GameProfileRequest = {
   skillLevel: string;
   playstyles: string[];
   platforms: string[];
+};
+
+export type SearchProfileResponse = {
+  profileId: string;
+  nickname: string;
+  avatarUrl?: string;
+  isFriend: boolean;
 };

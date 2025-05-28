@@ -1,6 +1,7 @@
 package nl.fhict.gamemate.userservice;
 
 import jakarta.persistence.EntityNotFoundException;
+import nl.fhict.gamemate.userservice.dto.ProfileResponse;
 import nl.fhict.gamemate.userservice.model.FriendRequest;
 import nl.fhict.gamemate.userservice.model.Profile;
 import nl.fhict.gamemate.userservice.repository.FriendRequestRepository;
@@ -69,16 +70,18 @@ class FriendServiceTest {
     @Test
     void respondToFriendRequest_acceptsRequestAndLinksFriends() {
         UUID requestId = UUID.randomUUID();
-        Profile sender = Profile.builder().userId("sender").build();
-        Profile receiver = Profile.builder().id(UUID.randomUUID()).build();
+        String receiverUserId = "receiverUserId";
+
+        Profile sender = Profile.builder().userId("senderUserId").build();
+        Profile receiver = Profile.builder().userId(receiverUserId).friends(new HashSet<>()).build();
         sender.setFriends(new HashSet<>());
-        receiver.setFriends(new HashSet<>());
+
         FriendRequest request = FriendRequest.builder().sender(sender).receiver(receiver).build();
 
-        when(profileService.getProfile(receiver.getId())).thenReturn(receiver);
+        when(profileService.getOwnProfile(receiverUserId)).thenReturn(receiver);
         when(friendRequestRepository.findById(requestId)).thenReturn(Optional.of(request));
 
-        friendService.respondToFriendRequest(receiver.getId(), requestId, true);
+        friendService.respondToFriendRequest(receiverUserId, requestId, true);
 
         assertTrue(receiver.getFriends().contains(sender));
         assertTrue(sender.getFriends().contains(receiver));
@@ -90,37 +93,60 @@ class FriendServiceTest {
     @Test
     void respondToFriendRequest_declinesRequest() {
         UUID requestId = UUID.randomUUID();
-        Profile receiver = Profile.builder().id(UUID.randomUUID()).build();
-        FriendRequest request = FriendRequest.builder().sender(new Profile()).receiver(receiver).build();
+        String receiverUserId = "receiverUserId";
 
-        when(profileService.getProfile(receiver.getId())).thenReturn(receiver);
+        Profile receiver = Profile.builder().userId(receiverUserId).build();
+        FriendRequest request = FriendRequest.builder()
+                .sender(Profile.builder().userId("senderUserId").build())
+                .receiver(receiver)
+                .build();
+
+        when(profileService.getOwnProfile(receiverUserId)).thenReturn(receiver);
         when(friendRequestRepository.findById(requestId)).thenReturn(Optional.of(request));
 
-        friendService.respondToFriendRequest(receiver.getId(), requestId, false);
+        friendService.respondToFriendRequest(receiverUserId, requestId, false);
 
         verify(friendRequestRepository).delete(request);
+        verify(profileRepository, never()).save(any());
     }
 
     @Test
     void respondToFriendRequest_throwsIfNotReceiver() {
         UUID requestId = UUID.randomUUID();
-        Profile actualReceiver = Profile.builder().userId("actualReceiver").build();
-        Profile fakeReceiver = Profile.builder().userId("fakeReceiver").build();
-        FriendRequest request = FriendRequest.builder().sender(new Profile()).receiver(actualReceiver).build();
+        String actualReceiverId = "actualReceiver";
+        String fakeReceiverId = "fakeReceiver";
 
-        when(profileService.getProfile(fakeReceiver.getId())).thenReturn(fakeReceiver);
+        Profile actualReceiver = Profile.builder().userId(actualReceiverId).build();
+        Profile fakeReceiver = Profile.builder().userId(fakeReceiverId).build();
+
+        FriendRequest request = FriendRequest.builder()
+                .sender(Profile.builder().userId("sender").build())
+                .receiver(actualReceiver)
+                .build();
+
+        when(profileService.getOwnProfile(fakeReceiverId)).thenReturn(fakeReceiver);
         when(friendRequestRepository.findById(requestId)).thenReturn(Optional.of(request));
 
-        assertThrows(SecurityException.class, () -> friendService.respondToFriendRequest(fakeReceiver.getId(), requestId, true));
+        assertThrows(SecurityException.class, () ->
+                friendService.respondToFriendRequest(fakeReceiverId, requestId, true));
+
+        verify(friendRequestRepository, never()).delete(any());
+        verify(profileRepository, never()).save(any());
     }
 
     @Test
     void respondToFriendRequest_throwsIfRequestNotFound() {
         UUID requestId = UUID.randomUUID();
+        String receiverUserId = "receiver";
+
         when(friendRequestRepository.findById(requestId)).thenReturn(Optional.empty());
 
-        assertThrows(EntityNotFoundException.class, () -> friendService.respondToFriendRequest(UUID.randomUUID(), requestId, true));
+        assertThrows(EntityNotFoundException.class, () ->
+                friendService.respondToFriendRequest(receiverUserId, requestId, true));
+
+        verify(profileRepository, never()).save(any());
     }
+
 
     @Test
     void unfriend_removesBidirectionalFriendship() {
@@ -142,14 +168,30 @@ class FriendServiceTest {
 
     @Test
     void listFriends_returnsMappedFriends() {
-        Profile profile = new Profile();
-        Set<Profile> friends = new HashSet<>();
-        profile.setFriends(friends);
-        when(profileService.getOwnProfile("userId")).thenReturn(profile);
+        Profile friend1 = Profile.builder()
+                .id(UUID.randomUUID())
+                .nickname("Friend1")
+                .avatarUrl("url1")
+                .build();
 
-        Set<Profile> result = friendService.listFriends("userId");
+        Profile friend2 = Profile.builder()
+                .id(UUID.randomUUID())
+                .nickname("Friend2")
+                .avatarUrl("url2")
+                .build();
 
-        assertEquals(friends, result);
+        Profile userProfile = Profile.builder()
+                .userId("userId")
+                .friends(Set.of(friend1, friend2))
+                .build();
+
+        when(profileService.getOwnProfile("userId")).thenReturn(userProfile);
+
+        List<ProfileResponse> result = friendService.listFriends("userId");
+
+        assertEquals(2, result.size());
+        assertTrue(result.stream().anyMatch(f -> f.getNickname().equals("Friend1")));
+        assertTrue(result.stream().anyMatch(f -> f.getNickname().equals("Friend2")));
     }
 
     @Test

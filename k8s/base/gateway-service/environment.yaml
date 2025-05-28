@@ -1,0 +1,10 @@
+apiVersion: v1
+metadata:
+  name: gateway-service-configmap
+  namespace: gamemate-backend
+kind: ConfigMap
+data:
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka.gamemate-platform.svc.cluster.local:8761/eureka
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: https://gamemate.eu.auth0.com/
+  AUTH0_AUDIENCE: https://gamemate.eu.auth0.com/api/v2/
+  MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin.gamemate-infrastructure.svc.cluster.local:9411/api/v2/spans
