@@ -18,6 +18,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import java.io.IOException;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -62,23 +63,24 @@ class DOAvatarStorageServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "avatar", "profile.jpg", "image/jpeg", "image content".getBytes());
 
-        String userId = "test-user";
+        UUID profileId = UUID.randomUUID();
 
-        String url = storageService.store(file, userId);
+        String url = storageService.store(file, profileId);
 
         assertNotNull(url);
         assertTrue(url.contains("https://nyc3.digitaloceanspaces.com/gamemate-assets/avatars/"));
 
-        verify(rateLimiter).checkRate(userId);
+        verify(rateLimiter).checkRate(profileId.toString());
         verify(mockS3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
     @Test
     void store_emptyFile_throwsException() {
         MockMultipartFile file = new MockMultipartFile("avatar", "empty.jpg", "image/jpeg", new byte[0]);
+        UUID profileId = UUID.randomUUID();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                storageService.store(file, "user123"));
+                storageService.store(file, profileId));
 
         assertEquals("File is empty", exception.getMessage());
         verifyNoInteractions(mockS3Client);
@@ -87,9 +89,10 @@ class DOAvatarStorageServiceTest {
     @Test
     void store_nonImageFile_throwsException() {
         MockMultipartFile file = new MockMultipartFile("avatar", "text.txt", "text/plain", "text".getBytes());
+        UUID profileId = UUID.randomUUID();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                storageService.store(file, "user123"));
+                storageService.store(file, profileId));
 
         assertEquals("Only image uploads are allowed", exception.getMessage());
         verifyNoInteractions(mockS3Client);
@@ -100,9 +103,10 @@ class DOAvatarStorageServiceTest {
         MockMultipartFile file = new MockMultipartFile(
                 "avatar", "image.unknown", null, "fake content".getBytes()
         );
+        UUID profileId = UUID.randomUUID();
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
-                storageService.store(file, "user456"));
+                storageService.store(file, profileId));
 
         assertEquals("Only image uploads are allowed", exception.getMessage());
         verifyNoInteractions(mockS3Client);
@@ -111,18 +115,21 @@ class DOAvatarStorageServiceTest {
     @Test
     void store_ioException_throwsRuntimeException() throws IOException {
         MultipartFile file = mock(MultipartFile.class);
+        UUID profileId = UUID.randomUUID();
+
         when(file.isEmpty()).thenReturn(false);
         when(file.getContentType()).thenReturn("image/png");
         when(file.getOriginalFilename()).thenReturn("bad.png");
         when(file.getInputStream()).thenThrow(new IOException("Boom"));
 
         RuntimeException exception = assertThrows(RuntimeException.class, () ->
-                storageService.store(file, "user123"));
+                storageService.store(file, profileId));
 
         assertTrue(exception.getMessage().contains("Failed to upload avatar to DigitalOcean Space"));
-        verify(rateLimiter).checkRate("user123");
+        verify(rateLimiter).checkRate(profileId.toString());
         verifyNoInteractions(mockS3Client);
     }
+
 
     @Test
     void delete_validUrl_callsDeleteObject() {

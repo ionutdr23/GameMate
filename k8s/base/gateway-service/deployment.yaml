@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-service
+  namespace: gamemate-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gateway-service
+  template:
+    metadata:
+      labels:
+        app: gateway-service
+    spec:
+      containers:
+        - name: gateway
+          image: keyshr3kt/gateway-service:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: gateway-service-configmap
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+  namespace: gamemate-backend
+spec:
+  selector:
+    app: gateway-service
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

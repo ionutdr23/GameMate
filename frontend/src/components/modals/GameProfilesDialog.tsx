@@ -20,7 +20,7 @@ import {
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { GameProfile, GameProfileRequest } from "@/types/profile";
-import { useFetchWithAuth } from "@/lib/utils";
+import { useAxiosWithAuth } from "@/lib/utils";
 
 type GameOption = {
   id: string;
@@ -39,31 +39,31 @@ export function GameProfilesDialog({
   const [games, setGames] = useState<GameOption[]>([]);
   const [availablePlatforms, setAvailablePlatforms] = useState<string[]>([]);
   const [availablePlaystyles, setAvailablePlaystyles] = useState<string[]>([]);
-  const fetchWithAuth = useFetchWithAuth();
+  const axiosInstance = useAxiosWithAuth();
 
   useEffect(() => {
     const fetchInformation = async () => {
       try {
         const [gamesRes, platformsRes, playstylesRes] = await Promise.all([
-          fetchWithAuth("/user/game"),
-          fetchWithAuth("/user/meta/platforms"),
-          fetchWithAuth("/user/meta/playstyles"),
+          axiosInstance.get("/user/game"),
+          axiosInstance.get("/user/meta/platforms"),
+          axiosInstance.get("/user/meta/playstyles"),
         ]);
-        const gamesData = await gamesRes.json();
+        const gamesData = gamesRes.data;
         setGames(gamesData);
-        setAvailablePlatforms(await platformsRes.json());
-        setAvailablePlaystyles(await playstylesRes.json());
+        setAvailablePlatforms(platformsRes.data);
+        setAvailablePlaystyles(playstylesRes.data);
       } catch (err) {
         console.error("Failed to fetch information:", err);
       }
     };
     fetchInformation();
-  }, [fetchWithAuth]);
+  }, [axiosInstance]);
 
   const updateProfile = (
     index: number,
     key: keyof GameProfile | "game.id" | "game.name" | "game.skillLevels",
-    value: any
+    value: string | string[]
   ) => {
     setProfiles((prev) => {
       const updated = [...prev];
@@ -73,7 +73,15 @@ export function GameProfilesDialog({
         const subKey = key.split(".")[1] as keyof GameProfile["game"];
         profile.game = { ...profile.game, [subKey]: value };
       } else {
-        profile[key as keyof GameProfile] = value;
+        if (key === "skillLevel" && typeof value === "string") {
+          profile.skillLevel = value;
+        } else if (key === "playstyles" && Array.isArray(value)) {
+          profile.playstyles = value as string[];
+        } else if (key === "platforms" && Array.isArray(value)) {
+          profile.platforms = value as string[];
+        } else if (key === "id" && typeof value === "string") {
+          profile.id = value;
+        }
       }
 
       updated[index] = profile;
@@ -144,7 +152,7 @@ export function GameProfilesDialog({
         <DialogHeader>
           <DialogTitle>Edit Game Profiles</DialogTitle>
           <DialogDescription>
-            Add or modify your game profiles. Each game can have one entry.
+            Add or modify your game profiles.
           </DialogDescription>
         </DialogHeader>
 

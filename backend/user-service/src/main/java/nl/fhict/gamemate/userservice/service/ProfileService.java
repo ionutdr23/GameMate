@@ -3,21 +3,25 @@ package nl.fhict.gamemate.userservice.service;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import nl.fhict.gamemate.userservice.dto.GameProfileRequest;
 import nl.fhict.gamemate.userservice.dto.ProfileRequest;
+import nl.fhict.gamemate.userservice.dto.ProfileResponse;
 import nl.fhict.gamemate.userservice.model.Game;
 import nl.fhict.gamemate.userservice.model.GameProfile;
 import nl.fhict.gamemate.userservice.model.Profile;
 import nl.fhict.gamemate.userservice.repository.GameProfileRepository;
 import nl.fhict.gamemate.userservice.repository.GameRepository;
 import nl.fhict.gamemate.userservice.repository.ProfileRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ public class ProfileService {
     private final GameRepository gameRepository;
     private final GameProfileRepository gameProfileRepository;
     private final DOAvatarStorageService avatarStorageService;
+    private static final Logger log = LoggerFactory.getLogger(ProfileService.class);
 
     public static final String DEFAULT_AVATAR_URL = "https://gamemate-assets.ams3.cdn.digitaloceanspaces.com/gamemate-assets/avatars/blank-profile-picture.png";
 
@@ -49,13 +54,29 @@ public class ProfileService {
 
     @Transactional
     public String uploadAvatar(String userId, MultipartFile file) {
+        log.info("Uploading avatar for user {}", userId);
+
         Profile profile = profileRepository.findByUserId(userId)
-                .orElseThrow(() -> new EntityNotFoundException("Profile not found"));
-        String url = avatarStorageService.store(file, userId);
-        if (!Objects.equals(profile.getAvatarUrl(), DEFAULT_AVATAR_URL))
-            avatarStorageService.delete(profile.getAvatarUrl());
+                .orElseThrow(() -> {
+                    log.warn("Profile not found for user {}", userId);
+                    return new EntityNotFoundException("Profile not found");
+                });
+
+        UUID profileId = profile.getId();
+        String oldAvatarUrl = profile.getAvatarUrl();
+
+        String url = avatarStorageService.store(file, profileId);
         profile.setAvatarUrl(url);
         profileRepository.save(profile);
+
+        log.info("Updated avatar URL in profile {} (user: {})", profileId, userId);
+
+        if (!Objects.equals(oldAvatarUrl, DEFAULT_AVATAR_URL)) {
+            log.info("Deleting old avatar for profile {} at {}", profileId, oldAvatarUrl);
+            avatarStorageService.delete(oldAvatarUrl);
+            log.info("Deleted old avatar for profile {}", profileId);
+        }
+
         return url;
     }
 
@@ -134,6 +155,45 @@ public class ProfileService {
         profile.getGameProfiles().remove(gameProfile);
         gameProfileRepository.delete(gameProfile);
         profileRepository.save(profile);
+    }
+
+    public List<ProfileResponse> searchProfiles(String nickname, String currentUserId) {
+        // Fetch the current user's profile with friends eagerly loaded
+        Profile currentUser = profileRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Set<UUID> friendIds = currentUser.getFriends().stream()
+                .map(Profile::getId)
+                .collect(Collectors.toSet());
+
+        // Fetch top 50 matches to ensure enough data after filtering
+        Pageable limit = PageRequest.of(0, 50);
+        List<Profile> matches = profileRepository.searchByNickname(nickname, currentUserId, limit);
+
+        // Partition into friends and non-friends
+        List<ProfileResponse> friends = new ArrayList<>();
+        List<ProfileResponse> others = new ArrayList<>();
+
+        for (Profile profile : matches) {
+            if (profile.getId().equals(currentUser.getId())) continue;
+            ProfileResponse dto = ProfileResponse.builder()
+                    .profileId(profile.getId())
+                    .nickname(profile.getNickname())
+                    .avatarUrl(profile.getAvatarUrl())
+                    .isFriend(friendIds.contains(profile.getId()))
+                    .build();
+
+            if (dto.isFriend()) {
+                friends.add(dto);
+            } else {
+                others.add(dto);
+            }
+        }
+
+        // Combine friends first, then others, limit to 20
+        return Stream.concat(friends.stream(), others.stream())
+                .limit(20)
+                .toList();
     }
 
     public void deleteProfile(String userId) {

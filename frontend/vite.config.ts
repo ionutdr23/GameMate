@@ -3,11 +3,11 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
     build: {
-      outDir: mode === "staging" ? "./dist/staging/" : "./dist/production/",
+      outDir: "dist",
     },
     resolve: {
       alias: {

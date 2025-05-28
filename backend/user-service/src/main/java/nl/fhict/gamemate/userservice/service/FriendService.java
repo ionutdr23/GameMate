@@ -3,6 +3,7 @@ package nl.fhict.gamemate.userservice.service;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import nl.fhict.gamemate.userservice.dto.ProfileResponse;
 import nl.fhict.gamemate.userservice.model.Profile;
 import nl.fhict.gamemate.userservice.model.FriendRequest;
 import nl.fhict.gamemate.userservice.repository.FriendRequestRepository;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,8 +41,8 @@ public class FriendService {
     }
 
     @Transactional
-    public void respondToFriendRequest(UUID receiverProfileId, UUID requestId, boolean accept) {
-        Profile receiver = profileService.getProfile(receiverProfileId);
+    public void respondToFriendRequest(String userId, UUID requestId, boolean accept) {
+        Profile receiver = profileService.getOwnProfile(userId);
         FriendRequest request = friendRequestRepository.findById(requestId)
                 .orElseThrow(() -> new EntityNotFoundException("Request not found"));
 
@@ -70,9 +72,16 @@ public class FriendService {
         profileRepository.save(friend);
     }
 
-    public Set<Profile> listFriends(String userId) {
+    public List<ProfileResponse> listFriends(String userId) {
         Profile profile = profileService.getOwnProfile(userId);
-        return profile.getFriends();
+        return profile.getFriends().stream()
+                .map(friend -> ProfileResponse.builder()
+                        .profileId(friend.getId())
+                        .nickname(friend.getNickname())
+                        .avatarUrl(friend.getAvatarUrl())
+                        .isFriend(true)
+                        .build())
+                .toList();
     }
 
     public List<FriendRequest> getIncomingRequests(String userId) {

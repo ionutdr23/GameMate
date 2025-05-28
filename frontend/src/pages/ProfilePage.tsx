@@ -1,11 +1,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useProfile } from "@/hooks/useProfile";
 import { useUserProfile } from "@/hooks/useUserProfile";
-import { NavLink, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { GameProfilesDialog } from "@/components/modals/GameProfilesDialog";
 import Loading from "@/components/Loading";
 import { useGameProfileManager } from "@/hooks/useGameProfileManager";
-import { Button } from "@/components/ui/button";
 
 const ProfilePage = () => {
   const { id } = useParams();
@@ -50,11 +49,6 @@ const ProfilePage = () => {
               </p>
             </div>
           </div>
-          <NavLink to={`/profile/edit`}>
-            <Button variant="outline" size="sm">
-              Edit
-            </Button>
-          </NavLink>
         </CardContent>
       </Card>
 

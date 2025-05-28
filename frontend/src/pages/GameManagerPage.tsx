@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useFetchWithAuth } from "@/lib/utils";
+import { useAxiosWithAuth } from "@/lib/utils";
+import { useCallback } from "react";
 
 type Game = {
   id: string;
@@ -8,23 +9,24 @@ type Game = {
 };
 
 const GameManagerPage = () => {
-  const fetchWithAuth = useFetchWithAuth();
+  const axiosInstance = useAxiosWithAuth();
 
   const [games, setGames] = useState<Game[]>([]);
   const [name, setName] = useState("");
   const [skillLevels, setSkillLevels] = useState("");
   const [error, setError] = useState("");
 
-  const fetchGames = async () => {
+  const fetchGames = useCallback(async () => {
     try {
-      const res = await fetchWithAuth("/user/game");
-      if (!res.ok) throw new Error("Failed to fetch games");
-      const data = await res.json();
-      setGames(data);
+      const res = await axiosInstance.get("/user/game");
+      setGames(res.data);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message || "Error loading games");
+      setError(
+        err.response?.data?.message || err.message || "Error loading games"
+      );
     }
-  };
+  }, [axiosInstance]);
 
   const handleAddGame = async (e: FormEvent) => {
     e.preventDefault();
@@ -36,21 +38,18 @@ const GameManagerPage = () => {
     };
 
     try {
-      const res = await fetchWithAuth("/user/game", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await axiosInstance.post("/user/game", payload);
 
-      if (!res.ok) {
-        const errorData = await res.json();
+      if (res.status !== 200) {
+        const errorData = res.data;
         throw new Error(errorData.message || "Failed to add game");
       }
 
-      const newGame: Game = await res.json();
+      const newGame: Game = res.data;
       setGames([...games, newGame]);
       setName("");
       setSkillLevels("");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.message);
     }
@@ -58,13 +57,12 @@ const GameManagerPage = () => {
 
   const handleDeleteGame = async (id: string) => {
     try {
-      const res = await fetchWithAuth(`/user/game/${id}`, {
-        method: "DELETE",
-      });
+      const res = await axiosInstance.delete(`/user/game/${id}`);
 
-      if (!res.ok) throw new Error("Failed to delete game");
+      if (res.status !== 200) throw new Error("Failed to delete game");
 
       setGames(games.filter((g) => g.id !== id));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       setError(err.message || "Delete error");
     }
@@ -72,7 +70,7 @@ const GameManagerPage = () => {
 
   useEffect(() => {
     fetchGames();
-  }, []);
+  }, [fetchGames]);
 
   return (
     <div className="p-4 max-w-2xl mx-auto">

@@ -30,8 +30,11 @@ const ProfilePicture = () => {
         <DropdownMenuItem onClick={() => navigate("/profile")}>
           Profile
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/profile/edit")}>
+          Edit Profile
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/profile/settings")}>
-          Settings
+          Application Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <div className="p-1 flex items-center">
