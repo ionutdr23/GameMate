@@ -18,7 +18,7 @@ repositories {
 }
 
 ext {
-	set('springCloudVersion', "2024.0.1") // This version includes Gateway 4.2.3
+	set('springCloudVersion', "2024.0.1")
 }
 
 dependencies {
@@ -35,7 +35,7 @@ dependencies {
 	implementation 'io.github.openfeign:feign-micrometer:13.2'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'com.thoughtworks.xstream:xstream:1.4.21'
-
+	implementation 'org.springframework.cloud:spring-cloud-gateway-server:4.2.3'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
 	testImplementation 'org.springframework.security:spring-security-test'
