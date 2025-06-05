@@ -72,12 +72,16 @@ public class ProfileService {
                     .status("CREATED")
                     .timestamp(LocalDateTime.now())
                     .build();
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    eventPublisher.publishUserEvent(event);
-                }
-            });
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        eventPublisher.publishUserEvent(event);
+                    }
+                });
+            } else {
+                eventPublisher.publishUserEvent(event);
+            }
 
             return profile;
         } catch (IllegalArgumentException e) {
@@ -114,12 +118,16 @@ public class ProfileService {
                     .status("UPDATED")
                     .timestamp(LocalDateTime.now())
                     .build();
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    eventPublisher.publishUserEvent(event);
-                }
-            });
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        eventPublisher.publishUserEvent(event);
+                    }
+                });
+            } else {
+                eventPublisher.publishUserEvent(event);
+            }
             return url;
         } catch (EntityNotFoundException e) {
             log.warn("Upload avatar failed: {}", e.getMessage());
@@ -182,12 +190,16 @@ public class ProfileService {
                     .status("UPDATED")
                     .timestamp(LocalDateTime.now())
                     .build();
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    eventPublisher.publishUserEvent(event);
-                }
-            });
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        eventPublisher.publishUserEvent(event);
+                    }
+                });
+            } else {
+                eventPublisher.publishUserEvent(event);
+            }
 
             return profile;
         } catch (EntityNotFoundException | IllegalArgumentException e) {
@@ -349,12 +361,16 @@ public class ProfileService {
                     .status("DELETED")
                     .timestamp(LocalDateTime.now())
                     .build();
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    eventPublisher.publishUserEvent(event);
-                }
-            });
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        eventPublisher.publishUserEvent(event);
+                    }
+                });
+            } else {
+                eventPublisher.publishUserEvent(event);
+            }
         } catch (EntityNotFoundException e) {
             log.warn("Delete own profile failed: {}", e.getMessage());
             throw e;
