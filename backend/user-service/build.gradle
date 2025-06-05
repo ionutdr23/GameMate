@@ -50,6 +50,7 @@ dependencies {
     implementation 'io.github.openfeign:feign-micrometer:13.2'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'com.thoughtworks.xstream:xstream:1.4.21'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
