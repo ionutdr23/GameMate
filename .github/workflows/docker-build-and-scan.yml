@@ -23,7 +23,7 @@ jobs:
             image: keyshr3kt/social-service:latest
           - name: gateway-service
             path: backend/gateway-service
-            image: keyshr3kt/user-service:latest
+            image: keyshr3kt/gateway-service:latest
           - name: gamemate-frontend
             path: frontend
             image: keyshr3kt/gamemate-frontend:latest
