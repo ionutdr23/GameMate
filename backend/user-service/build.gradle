@@ -106,6 +106,7 @@ sonarqube {
             **/exception/**,
             **/model/**,
             **/repository/**,
+            **/mapper/**,
             **/UserServiceApplication.java
         """
         property "sonar.projectKey", "gamemate-user-service"

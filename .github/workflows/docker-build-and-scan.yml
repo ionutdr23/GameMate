@@ -73,7 +73,7 @@ jobs:
           - name: social-service
             image: keyshr3kt/social-service:latest
           - name: gateway-service
-            image: keyshr3kt/user-service:latest
+            image: keyshr3kt/gateway-service:latest
           - name: gamemate-frontend
             image: keyshr3kt/gamemate-frontend:latest
 
