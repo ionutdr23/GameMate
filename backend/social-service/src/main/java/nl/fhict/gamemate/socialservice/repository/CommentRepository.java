@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.UUID;
 
 public interface CommentRepository extends MongoRepository<Comment, UUID> {
-    List<Comment> findByPostId(UUID postId);
     void deleteByPostId(UUID postId);
 
     List<Comment> findByPostIdAndParentCommentIdIsNull(UUID postId);

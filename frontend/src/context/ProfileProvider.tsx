@@ -24,7 +24,6 @@ export const ProfileProvider = ({
         setProfile(null);
         return;
       }
-      console.log(res.data);
       const data = res.data;
       const parsed = {
         ...data,
@@ -70,12 +69,10 @@ export const ProfileProvider = ({
       await axiosInstance.post("/user/profile", data, {
         headers: { "Content-Type": "application/json" },
       });
-
       if (avatarFile) {
         await uploadAvatar(avatarFile);
       }
-
-      await refetch(); // optional: refresh profile after creation
+      await refetch();
     } catch (err) {
       setError((err as Error).message);
       throw new Error("Profile creation failed");
@@ -99,6 +96,22 @@ export const ProfileProvider = ({
     } catch (err) {
       setError((err as Error).message);
       throw new Error("Profile update failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const deleteAccount = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await axiosInstance.delete("/user/profile/delete");
+      if (response.status !== 204) {
+        throw new Error("Failed to delete account");
+      }
+    } catch (err) {
+      setError((err as Error).message);
+      throw new Error("Failed to delete account");
     } finally {
       setIsLoading(false);
     }
@@ -147,6 +160,7 @@ export const ProfileProvider = ({
     uploadAvatar,
     createProfile,
     updateProfile,
+    deleteAccount,
     checkNicknameAvailability,
   };
 

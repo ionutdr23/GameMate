@@ -1,0 +1,100 @@
+name: Build, Scan and Push Docker Images
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-scan:
+    runs-on: windows-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    strategy:
+      matrix:
+        service:
+          - name: user-service
+            path: backend/user-service
+            image: keyshr3kt/user-service:latest
+          - name: eureka-server
+            path: backend/eureka-server
+            image: keyshr3kt/eureka-server:latest
+          - name: social-service
+            path: backend/social-service
+            image: keyshr3kt/social-service:latest
+          - name: gateway-service
+            path: backend/gateway-service
+            image: keyshr3kt/user-service:latest
+          - name: gamemate-frontend
+            path: frontend
+            image: keyshr3kt/gamemate-frontend:latest
+
+    env:
+      DOCKER_IMAGE: ${{ matrix.service.image }}
+      IMAGE_TAG: latest
+      TRIVY_VERSION: 0.51.1
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: |
+          docker build -t $env:DOCKER_IMAGE "${{ matrix.service.path }}"
+
+      - name: Cache Trivy
+        uses: actions/cache@v4
+        with:
+          path: trivy/
+          key: trivy-windows
+
+      - name: Download Trivy if not cached
+        shell: pwsh
+        run: |
+          if (-Not (Test-Path 'trivy\trivy.exe')) {
+            Invoke-WebRequest -Uri "https://github.com/aquasecurity/trivy/releases/download/v${{ env.TRIVY_VERSION }}/trivy_${{ env.TRIVY_VERSION }}_windows-64bit.zip" -OutFile "trivy.zip"
+            Expand-Archive -Path "trivy.zip" -DestinationPath "trivy"
+          }
+
+      - name: Filesystem Security Scan
+        run: |
+          .\trivy\trivy.exe fs --exit-code 1 --scanners vuln --severity HIGH,CRITICAL --no-progress "${{ matrix.service.path }}"
+        continue-on-error: false
+
+      - name: Image Security Scan
+        run: |
+          .\trivy\trivy.exe image $env:DOCKER_IMAGE --exit-code 1 --severity HIGH,CRITICAL --no-progress
+        continue-on-error: true
+
+  push-image:
+    needs: build-and-scan
+    if: github.event_name == 'push'
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        service:
+          - name: user-service
+            image: keyshr3kt/user-service:latest
+          - name: eureka-server
+            image: keyshr3kt/eureka-server:latest
+          - name: social-service
+            image: keyshr3kt/social-service:latest
+          - name: gateway-service
+            image: keyshr3kt/user-service:latest
+          - name: gamemate-frontend
+            image: keyshr3kt/gamemate-frontend:latest
+
+    env:
+      DOCKER_IMAGE: ${{ matrix.service.image }}
+
+    steps:
+      - name: Log in to DockerHub
+        run: |
+          docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+
+      - name: Push Docker Image
+        run: |
+          docker push $env:DOCKER_IMAGE

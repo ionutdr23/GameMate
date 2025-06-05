@@ -10,6 +10,7 @@ export type ProfileContextType = {
   uploadAvatar: (file: File) => Promise<void>;
   createProfile: (data: ProfileFormValues, avatarFile?: File) => Promise<void>;
   updateProfile: (data: ProfileFormValues) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   checkNicknameAvailability: (nickname: string) => Promise<boolean>;
 };
 

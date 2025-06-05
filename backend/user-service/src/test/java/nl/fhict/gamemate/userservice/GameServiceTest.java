@@ -3,6 +3,7 @@ package nl.fhict.gamemate.userservice;
 import jakarta.persistence.EntityNotFoundException;
 import nl.fhict.gamemate.userservice.dto.GameRequest;
 import nl.fhict.gamemate.userservice.model.Game;
+import nl.fhict.gamemate.userservice.model.GameProfile;
 import nl.fhict.gamemate.userservice.repository.GameRepository;
 import nl.fhict.gamemate.userservice.service.GameService;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,8 +67,8 @@ class GameServiceTest {
 
     @Test
     void getGames_ShouldReturnListOfGames() {
-        Game game1 = new Game(UUID.randomUUID(), "Valorant", Set.of("Casual"));
-        Game game2 = new Game(UUID.randomUUID(), "League of Legends", Set.of("Ranked"));
+        Game game1 = new Game(UUID.randomUUID(), "Valorant", Set.of("Casual"), Set.of(new GameProfile()));
+        Game game2 = new Game(UUID.randomUUID(), "League of Legends", Set.of("Ranked"), Set.of(new GameProfile()));
 
         when(gameRepository.findAll()).thenReturn(List.of(game1, game2));
 
@@ -80,7 +81,7 @@ class GameServiceTest {
     @Test
     void deleteGame_ShouldRemoveGame_WhenGameExists() {
         UUID id = UUID.randomUUID();
-        Game game = new Game(id, "Apex Legends", Set.of("All"));
+        Game game = new Game(id, "Apex Legends", Set.of("All"), Set.of(GameProfile.builder().build()));
 
         when(gameRepository.findById(id)).thenReturn(Optional.of(game));
 

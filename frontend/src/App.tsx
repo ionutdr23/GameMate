@@ -14,6 +14,9 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { UnauthorizedPage } from "./pages/UnauthorizedPage";
 import { Toaster } from "sonner";
 import FriendsPage from "./pages/FriendsPage";
+import UserPostsPage from "./pages/UserPostsPage";
+import PostEditorPage from "./pages/PostEditorPage";
+import PostDetailPage from "./pages/PostDetailPage";
 
 function App() {
   return (
@@ -32,6 +35,11 @@ function App() {
               <Route path=":id" element={<ProfilePage />} />
               <Route path="edit" element={<UpdateProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />
+            </Route>
+            <Route path="/posts" element={<Outlet />}>
+              <Route path="create" element={<PostEditorPage />} />
+              <Route path=":postId" element={<PostDetailPage />} />
+              <Route path="user/:profileId" element={<UserPostsPage />} />
             </Route>
             <Route path="friends" element={<FriendsPage />} />
             <Route path="/" element={<Feed />} />

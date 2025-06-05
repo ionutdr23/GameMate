@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ReactionRepository extends MongoRepository<Reaction, UUID> {
-    Optional<Reaction> findByPostIdAndUserId(UUID postId, String userId);
+    Optional<Reaction> findByPostIdAndProfileId(UUID postId, UUID profileId);
     List<Reaction> findByPostId(UUID postId);
     void deleteByPostId(UUID postId);
 }

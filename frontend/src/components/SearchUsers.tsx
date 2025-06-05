@@ -3,7 +3,9 @@ import { useAxiosWithAuth, cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { SearchProfileResponse } from "@/types/profile";
+import { useProfile } from "@/hooks/useProfile";
+import { ProfilePreview } from "@/types/profile";
+import { Link } from "react-router-dom";
 
 export function SearchUsers() {
   const [query, setQuery] = useState("");
@@ -14,8 +16,9 @@ export function SearchUsers() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const axios = useAxiosWithAuth();
   const queryClient = useQueryClient();
+  const { profile, refetch: refetchProfile } = useProfile();
 
-  const fetchUsers = async (): Promise<SearchProfileResponse[]> => {
+  const fetchUsers = async (): Promise<ProfilePreview[]> => {
     if (!query) return [];
     const res = await axios.get(`/user/profile/search`, {
       params: { nickname: query },
@@ -27,17 +30,40 @@ export function SearchUsers() {
     queryKey: ["searchUsers", query],
     queryFn: fetchUsers,
     enabled: false,
-    staleTime: 60_000, // 1 min cache
+    staleTime: 60_000,
   });
 
-  const { mutate } = useMutation({
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["searchUsers", query] });
+    refetchProfile();
+  };
+
+  const { mutate: sendRequest } = useMutation({
     mutationFn: (id: string) =>
       axios.post(`/user/friends/request`, null, {
         params: { receiverProfileId: id },
       }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["searchUsers", query] });
-    },
+    onSuccess: invalidate,
+  });
+
+  const { mutate: cancelRequest } = useMutation({
+    mutationFn: (requestId: string) =>
+      axios.delete(`/user/friends/request/${requestId}`),
+    onSuccess: invalidate,
+  });
+
+  const { mutate: respondToRequest } = useMutation({
+    mutationFn: ({
+      requestId,
+      accept,
+    }: {
+      requestId: string;
+      accept: boolean;
+    }) =>
+      axios.post(`/user/friends/request/${requestId}/respond`, null, {
+        params: { accept },
+      }),
+    onSuccess: invalidate,
   });
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,35 +109,87 @@ export function SearchUsers() {
             "w-full sm:w-96"
           )}
         >
-          {users.map((user) => (
-            <div
-              key={user.profileId}
-              className="flex items-center justify-between px-4 py-2 hover:bg-muted cursor-pointer"
-            >
-              <div className="flex items-center space-x-2">
-                <img
-                  src={
-                    user.avatarUrl ||
-                    "https://gamemate-assets.ams3.cdn.digitaloceanspaces.com/gamemate-assets/avatars/blank-profile-picture.png"
-                  }
-                  alt="avatar"
-                  className="w-8 h-8 rounded-full object-cover"
-                />
-                <span>{user.nickname}</span>
-              </div>
-              {!user.isFriend ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => mutate(user.profileId)}
+          {users.map((user) => {
+            const isFriend = profile?.friends.some((f) => f.id === user.id);
+            const sentRequest = profile?.sentFriendRequests.find(
+              (r) => r.receiver.id === user.id
+            );
+            const receivedRequest = profile?.receivedFriendRequests.find(
+              (r) => r.sender.id === user.id
+            );
+
+            return (
+              <div
+                key={user.id}
+                className="flex items-center justify-between px-4 py-2 hover:bg-muted cursor-pointer"
+              >
+                <Link
+                  to={`/profile/${user.id}`}
+                  className="flex items-center space-x-2"
                 >
-                  Add
-                </Button>
-              ) : (
-                <span className="text-sm text-green-600">✓</span>
-              )}
-            </div>
-          ))}
+                  <img
+                    src={
+                      user.avatarUrl ||
+                      "https://gamemate-assets.ams3.cdn.digitaloceanspaces.com/gamemate-assets/avatars/blank-profile-picture.png"
+                    }
+                    alt="avatar"
+                    className="w-8 h-8 rounded-full object-cover"
+                  />
+                  <span>{user.nickname}</span>
+                </Link>
+
+                <div className="flex gap-2">
+                  {isFriend ? (
+                    <span className="text-sm text-muted-foreground">
+                      Friend
+                    </span>
+                  ) : receivedRequest ? (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          respondToRequest({
+                            requestId: receivedRequest.id,
+                            accept: true,
+                          })
+                        }
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() =>
+                          respondToRequest({
+                            requestId: receivedRequest.id,
+                            accept: false,
+                          })
+                        }
+                      >
+                        Decline
+                      </Button>
+                    </>
+                  ) : sentRequest ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => cancelRequest(sentRequest.id)}
+                    >
+                      Cancel
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => sendRequest(user.id)}
+                    >
+                      Add
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

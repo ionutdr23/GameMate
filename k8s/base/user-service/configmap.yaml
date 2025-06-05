@@ -13,3 +13,4 @@ data:
   SPRING_RABBITMQ_HOST: rabbitmq.gamemate-infrastructure.svc.cluster.local
   SPRING_RABBITMQ_PORT: "5672"
   MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://zipkin.gamemate-infrastructure.svc.cluster.local:9411/api/v2/spans
+  AUTH0_DOMAIN: gamemate.eu.auth0.com

@@ -15,7 +15,7 @@ import java.util.*;
 @NoArgsConstructor
 public class CommentResponse {
     private UUID id;
-    private String userId;
+    private UUID profileId;
     private String content;
 
     private LocalDateTime createdAt;
@@ -30,7 +30,7 @@ public class CommentResponse {
         CommentResponse response = CommentResponse.builder()
                 .id(comment.getId())
                 .content(comment.getContent())
-                .userId(comment.getUserId())
+                .profileId(comment.getProfileId())
                 .createdAt(comment.getCreatedAt())
                 .isEdited(comment.isEdited())
                 .lastUpdatedAt(comment.getLastUpdatedAt())

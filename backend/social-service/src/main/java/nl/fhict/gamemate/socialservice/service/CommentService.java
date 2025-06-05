@@ -8,6 +8,7 @@ import nl.fhict.gamemate.socialservice.model.Comment;
 import nl.fhict.gamemate.socialservice.model.Post;
 import nl.fhict.gamemate.socialservice.repository.CommentRepository;
 import nl.fhict.gamemate.socialservice.repository.PostRepository;
+import nl.fhict.gamemate.socialservice.repository.UserProfileMappingRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,10 +22,14 @@ import java.util.stream.Collectors;
 public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
+    private final UserProfileMappingRepository userProfileMappingRepository;
 
     public Comment createComment(UUID postId, CreateCommentRequest request, String userId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+        UUID profileId = userProfileMappingRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"))
+                .getProfileId();
         if (request.getParentCommentId() != null && !commentRepository.existsById(request.getParentCommentId())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Parent comment not found");
         }
@@ -32,14 +37,9 @@ public class CommentService {
         Comment comment = Comment.builder()
                 .id(UUID.randomUUID())
                 .postId(postId)
-                .userId(userId)
+                .profileId(profileId)
                 .parentCommentId(request.getParentCommentId())
                 .content(request.getContent())
-                .createdAt(LocalDateTime.now())
-                .isEdited(false)
-                .lastUpdatedAt(LocalDateTime.now())
-                .reportCount(0)
-                .reportedBy(null)
                 .build();
         Comment savedComment = commentRepository.save(comment);
 
@@ -95,18 +95,20 @@ public class CommentService {
     public Comment updateComment(UUID commentId, UpdateCommentRequest request, String userId) {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
+        UUID profileId = userProfileMappingRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"))
+                .getProfileId();
 
-        boolean isOwner = comment.getUserId().equals(userId);
+        boolean isOwner = comment.getProfileId().equals(profileId);
         if (!isOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't have permission to update this comment");
         }
 
-        if (request.getContent() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one field must be updated");
+        if (request.getContent() == null || request.getContent().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Comment content must not be empty");
         }
 
         comment.setEdited(true);
-        comment.setLastUpdatedAt(LocalDateTime.now());
 
         comment.setContent(request.getContent());
         return commentRepository.save(comment);
@@ -117,8 +119,11 @@ public class CommentService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comment not found"));
         Post post = postRepository.findById(comment.getPostId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found"));
+        UUID profileId = userProfileMappingRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile not found"))
+                .getProfileId();
 
-        boolean isOwner = comment.getUserId().equals(userId);
+        boolean isOwner = comment.getProfileId().equals(profileId);
         if (!isOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't have permission to delete this comment");
         }
@@ -133,7 +138,8 @@ public class CommentService {
 
         commentRepository.deleteAllById(allIdsToDelete);
 
-        post.setCommentCount(post.getCommentCount() - allIdsToDelete.size());
+        int newCount = Math.max(0, post.getCommentCount() - allIdsToDelete.size());
+        post.setCommentCount(newCount);
         postRepository.save(post);
     }
 }

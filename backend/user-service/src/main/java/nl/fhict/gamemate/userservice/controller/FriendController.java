@@ -1,8 +1,8 @@
 package nl.fhict.gamemate.userservice.controller;
 
 import lombok.RequiredArgsConstructor;
-import nl.fhict.gamemate.userservice.dto.ProfileResponse;
-import nl.fhict.gamemate.userservice.model.FriendRequest;
+import nl.fhict.gamemate.userservice.dto.ProfilePreviewDto;
+import nl.fhict.gamemate.userservice.mapper.ProfileMapper;
 import nl.fhict.gamemate.userservice.service.FriendService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -10,7 +10,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -36,6 +35,15 @@ public class FriendController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/request/{id}")
+    public ResponseEntity<Void> deleteRequest(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        String userId = jwt.getSubject();
+        friendService.deleteRequest(userId, id);
+        return ResponseEntity.ok().build();
+    }
+
     @DeleteMapping("/unfriend")
     public ResponseEntity<Void> unfriend(@AuthenticationPrincipal Jwt jwt, @RequestParam UUID friendProfileId) {
         String userId = jwt.getSubject();
@@ -44,15 +52,9 @@ public class FriendController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProfileResponse>> getFriends(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<List<ProfilePreviewDto>> getFriends(@AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
-        return ResponseEntity.ok(friendService.listFriends(userId));
-    }
-
-    @GetMapping("/requests")
-    public ResponseEntity<List<FriendRequest>> getIncomingRequests(@AuthenticationPrincipal Jwt jwt) {
-        String userId = jwt.getSubject();
-        return ResponseEntity.ok(friendService.getIncomingRequests(userId));
+        return ResponseEntity.ok(ProfileMapper.toPreviewList(friendService.listFriends(userId)));
     }
 }
 

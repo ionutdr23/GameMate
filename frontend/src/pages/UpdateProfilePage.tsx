@@ -6,12 +6,14 @@ import { useDebounce } from "use-debounce";
 import { useQuery } from "@tanstack/react-query";
 import { profileSchema } from "@/validation/profile";
 import { useProfile } from "@/hooks/useProfile";
+import { useToasts } from "@/hooks/useToasts";
 import { fetchCountryList } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -23,8 +25,14 @@ import {
 type ProfileFormData = z.infer<typeof profileSchema>;
 
 export default function UpdateProfilePage() {
-  const { uploadAvatar, updateProfile, checkNicknameAvailability } =
-    useProfile();
+  const {
+    uploadAvatar,
+    updateProfile,
+    checkNicknameAvailability,
+    deleteAccount,
+  } = useProfile();
+  const { confirm, showSuccess, showError } = useToasts();
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [success, setSuccess] = useState(false);
@@ -137,6 +145,33 @@ export default function UpdateProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true);
+
+    try {
+      await deleteAccount();
+      showSuccess("Account deleted successfully");
+
+      setTimeout(() => {
+        window.location.href = "/landing";
+      }, 1000);
+    } catch (error) {
+      console.error("Delete account error:", error);
+      showError("Failed to delete account. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const onDeleteClick = () => {
+    confirm({
+      title: "Delete Account",
+      description:
+        "Are you sure you want to delete your account? This action cannot be undone and will permanently remove all your data, including your profile, friendships, and posts.",
+      onConfirm: handleDeleteAccount,
+    });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
       <Card className="rounded-2xl w-full shadow-xl max-w-2xl">
@@ -147,22 +182,27 @@ export default function UpdateProfilePage() {
 
           {/* Avatar Upload */}
           <div className="space-y-4">
-            <Label htmlFor="avatar">Avatar</Label>
-            <div className="relative w-full">
-              <input
-                id="avatar"
-                type="file"
-                accept="image/*"
-                onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
-                className="absolute inset-0 opacity-0 cursor-pointer z-10"
-              />
-              <div className="flex items-center justify-between px-4 py-2 border border-input bg-input text-foreground rounded-md text-sm">
-                <span className="truncate text-muted-foreground">
-                  {avatarFile?.name ?? "No file selected"}
-                </span>
-                <span className="text-primary font-medium">Browse</span>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="avatar" className="font-semibold">
+                Avatar
+              </Label>
+              <div className="relative w-full">
+                <input
+                  id="avatar"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                />
+                <div className="flex items-center justify-between px-4 py-2 border border-input bg-input text-foreground rounded-md text-sm">
+                  <span className="truncate text-muted-foreground">
+                    {avatarFile?.name ?? "No file selected"}
+                  </span>
+                  <span className="text-primary font-medium">Browse</span>
+                </div>
               </div>
             </div>
+
             {avatarPreviewUrl && (
               <div className="flex justify-center pt-2">
                 <img
@@ -172,6 +212,7 @@ export default function UpdateProfilePage() {
                 />
               </div>
             )}
+
             <Button
               onClick={handleAvatarUpload}
               disabled={!avatarFile}
@@ -183,8 +224,10 @@ export default function UpdateProfilePage() {
 
           {/* Profile Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-6">
-            <div className="space-y-2">
-              <Label htmlFor="nickname">Nickname *</Label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="nickname" className="font-semibold">
+                Nickname *
+              </Label>
               <Input id="nickname" {...register("nickname")} />
               {checking && (
                 <p className="text-sm text-muted-foreground">
@@ -206,16 +249,20 @@ export default function UpdateProfilePage() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="bio">Bio</Label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="bio" className="font-semibold">
+                Bio
+              </Label>
               <Textarea id="bio" rows={4} {...register("bio")} />
               {errors.bio && (
                 <p className="text-sm text-destructive">{errors.bio.message}</p>
               )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="location">Country</Label>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="location" className="font-semibold">
+                Country
+              </Label>
               <Controller
                 name="location"
                 control={control}
@@ -271,6 +318,30 @@ export default function UpdateProfilePage() {
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </form>
+          {/* Danger Zone */}
+          <div className="pt-8 border-t border-border">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-destructive">
+                  Danger Zone
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Once you delete your account, there is no going back. Please
+                  be certain.
+                </p>
+              </div>
+
+              <Button
+                variant="destructive"
+                onClick={onDeleteClick}
+                disabled={isDeleting}
+                className="w-full flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isDeleting ? "Deleting Account..." : "Delete Account"}
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
