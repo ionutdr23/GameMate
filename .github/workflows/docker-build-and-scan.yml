@@ -9,7 +9,6 @@ on:
 jobs:
   build-and-scan:
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
     strategy:
       matrix:
         service:
@@ -44,28 +43,20 @@ jobs:
         run: |
           docker build -t ${{ matrix.service.image }} "${{ matrix.service.path }}"
 
-      - name: Cache Trivy
-        uses: actions/cache@v4
-        with:
-          path: trivy/
-          key: trivy-windows
-
-      - name: Download Trivy if not cached
-        shell: pwsh
+      - name: Install Trivy
         run: |
-          if (-Not (Test-Path 'trivy\trivy.exe')) {
-            Invoke-WebRequest -Uri "https://github.com/aquasecurity/trivy/releases/download/v${{ env.TRIVY_VERSION }}/trivy_${{ env.TRIVY_VERSION }}_windows-64bit.zip" -OutFile "trivy.zip"
-            Expand-Archive -Path "trivy.zip" -DestinationPath "trivy"
-          }
+          mkdir -p trivy
+          curl -sSL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" | tar -xz -C trivy
+          sudo mv trivy/trivy /usr/local/bin/trivy
 
       - name: Filesystem Security Scan
         run: |
-          .\trivy\trivy.exe fs --exit-code 1 --scanners vuln --severity HIGH,CRITICAL --no-progress "${{ matrix.service.path }}"
+          trivy fs --exit-code 1 --scanners vuln --severity HIGH,CRITICAL --no-progress "${{ matrix.service.path }}"
         continue-on-error: false
 
       - name: Image Security Scan
         run: |
-          .\trivy\trivy.exe image ${{ matrix.service.image }} --exit-code 1 --severity HIGH,CRITICAL --no-progress
+          trivy image ${{ matrix.service.image }} --exit-code 1 --severity HIGH,CRITICAL --no-progress
         continue-on-error: true
 
   push-image:
