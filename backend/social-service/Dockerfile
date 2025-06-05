@@ -3,6 +3,7 @@ FROM gradle:8.13.0-jdk21 AS builder
 WORKDIR /app
 COPY build.gradle settings.gradle gradlew ./
 COPY gradle ./gradle
+RUN chmod +x gradlew
 RUN ./gradlew dependencies --no-daemon
 COPY . .
 RUN ./gradlew clean bootJar --no-daemon
