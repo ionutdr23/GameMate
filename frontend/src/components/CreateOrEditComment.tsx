@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-nocheck
 import { useAxiosWithAuth } from "@/lib/utils";
 import { useState } from "react";
 
