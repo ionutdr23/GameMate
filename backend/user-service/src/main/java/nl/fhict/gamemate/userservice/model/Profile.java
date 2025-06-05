@@ -53,7 +53,7 @@ public class Profile {
 
     @Size(max = 255)
     @Pattern(
-            regexp = "^(https?:\\/\\/)?[\\w\\-\\.]+\\.[a-z]{2,}.*$",
+            regexp = "^(https?://)?[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}(?:/[^\\s]*)?$",
             message = "Avatar must be a valid URL"
     )
     @EqualsAndHashCode.Include
