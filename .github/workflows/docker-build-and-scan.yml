@@ -30,7 +30,6 @@ jobs:
             image: keyshr3kt/gamemate-frontend:latest
 
     env:
-      DOCKER_IMAGE: ${{ matrix.service.image }}
       IMAGE_TAG: latest
       TRIVY_VERSION: 0.51.1
 
@@ -43,7 +42,7 @@ jobs:
 
       - name: Build Docker Image
         run: |
-          docker build -t $env:DOCKER_IMAGE "${{ matrix.service.path }}"
+          docker build -t ${{ matrix.service.image }} "${{ matrix.service.path }}"
 
       - name: Cache Trivy
         uses: actions/cache@v4
@@ -66,7 +65,7 @@ jobs:
 
       - name: Image Security Scan
         run: |
-          .\trivy\trivy.exe image $env:DOCKER_IMAGE --exit-code 1 --severity HIGH,CRITICAL --no-progress
+          .\trivy\trivy.exe image ${{ matrix.service.image }} --exit-code 1 --severity HIGH,CRITICAL --no-progress
         continue-on-error: true
 
   push-image:
@@ -87,9 +86,6 @@ jobs:
           - name: gamemate-frontend
             image: keyshr3kt/gamemate-frontend:latest
 
-    env:
-      DOCKER_IMAGE: ${{ matrix.service.image }}
-
     steps:
       - name: Log in to DockerHub
         run: |
@@ -97,4 +93,4 @@ jobs:
 
       - name: Push Docker Image
         run: |
-          docker push $env:DOCKER_IMAGE
+          docker push ${{ matrix.service.image }}
