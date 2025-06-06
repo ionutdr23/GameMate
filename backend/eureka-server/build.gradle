@@ -24,6 +24,10 @@ ext {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-server'
+	implementation 'com.thoughtworks.xstream:xstream:1.4.21'
+	implementation 'org.apache.httpcomponents.client5:httpclient5:5.4.3'
+	implementation 'org.springframework.boot:spring-boot:3.4.5'
+	implementation 'org.springframework.security:spring-security-crypto:6.4.4'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

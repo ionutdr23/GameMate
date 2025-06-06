@@ -1,3 +1,5 @@
+import { Game } from "./game";
+
 export type Profile = {
   id: string;
   nickname: string;
@@ -6,15 +8,20 @@ export type Profile = {
   location?: string;
   createdAt: Date;
   gameProfiles?: Array<GameProfile>;
+  friends: Array<Profile>;
+  sentFriendRequests: Array<FriendRequest>;
+  receivedFriendRequests: Array<FriendRequest>;
+};
+
+export type ProfilePreview = {
+  id: string;
+  nickname: string;
+  avatarUrl: string;
 };
 
 export type GameProfile = {
   id: string;
-  game: {
-    id: string;
-    name: string;
-    skillLevels: string[];
-  };
+  game: Game;
   skillLevel: string;
   playstyles: string[];
   platforms: string[];
@@ -27,9 +34,9 @@ export type GameProfileRequest = {
   platforms: string[];
 };
 
-export type SearchProfileResponse = {
-  profileId: string;
-  nickname: string;
-  avatarUrl?: string;
-  isFriend: boolean;
+type FriendRequest = {
+  id: string;
+  createdAt: string;
+  sender: Profile;
+  receiver: Profile;
 };

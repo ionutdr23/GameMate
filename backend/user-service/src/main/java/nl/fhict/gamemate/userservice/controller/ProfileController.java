@@ -3,13 +3,11 @@ package nl.fhict.gamemate.userservice.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import nl.fhict.gamemate.userservice.dto.GameProfileRequest;
+import nl.fhict.gamemate.userservice.dto.ProfileDto;
+import nl.fhict.gamemate.userservice.dto.ProfilePreviewDto;
 import nl.fhict.gamemate.userservice.dto.ProfileRequest;
-import nl.fhict.gamemate.userservice.dto.ProfileResponse;
-import nl.fhict.gamemate.userservice.model.Profile;
+import nl.fhict.gamemate.userservice.mapper.ProfileMapper;
 import nl.fhict.gamemate.userservice.service.ProfileService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -25,7 +23,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProfileController {
     private final ProfileService service;
-    private static final Logger log = LoggerFactory.getLogger(ProfileController.class);
 
     @GetMapping("/check-nickname")
     public ResponseEntity<?> checkNickname(@RequestParam String nickname) {
@@ -40,10 +37,10 @@ public class ProfileController {
     }
 
     @PostMapping
-    public ResponseEntity<Profile> createProfile(@AuthenticationPrincipal Jwt jwt,
-                                           @Valid @RequestBody ProfileRequest request) {
+    public ResponseEntity<ProfileDto> createProfile(@AuthenticationPrincipal Jwt jwt,
+                                                    @Valid @RequestBody ProfileRequest request) {
         String userId = jwt.getSubject();
-        return ResponseEntity.ok(service.createProfile(userId, request));
+        return ResponseEntity.ok(ProfileMapper.toDto(service.createProfile(userId, request)));
     }
 
 
@@ -51,49 +48,40 @@ public class ProfileController {
     public ResponseEntity<?> uploadAvatar(@AuthenticationPrincipal Jwt jwt,
                                           @RequestParam("file") MultipartFile file) {
         String userId = jwt.getSubject();
-        log.info("Received avatar upload request from user {}", userId);
-        try {
-            String avatarUrl = service.uploadAvatar(userId, file);
-            log.info("Successfully uploaded avatar for user {} to {}", userId, avatarUrl);
-            return ResponseEntity.ok(Map.of("avatarUrl", avatarUrl));
-        } catch (Exception e) {
-            log.error("Avatar upload failed for user {}", userId, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Upload failed");
-        }
+        String avatarUrl = service.uploadAvatar(userId, file);
+        return ResponseEntity.ok(Map.of("avatarUrl", avatarUrl));
     }
 
     @GetMapping("/me")
-    public ResponseEntity<Profile> getOwnProfile(@AuthenticationPrincipal Jwt jwt) {
+    public ResponseEntity<ProfileDto> getOwnProfile(@AuthenticationPrincipal Jwt jwt) {
         String userId = jwt.getSubject();
-        return ResponseEntity.ok(service.getOwnProfile(userId));
+        return ResponseEntity.ok(ProfileMapper.toDto(service.getOwnProfile(userId)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Profile> getProfile(@PathVariable UUID id) {
-        return ResponseEntity.ok(service.getProfile(id));
+    public ResponseEntity<ProfileDto> getProfile(@PathVariable UUID id) {
+        return ResponseEntity.ok(ProfileMapper.toDto(service.getProfile(id)));
     }
 
     @PutMapping()
-    public ResponseEntity<Profile> updateProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProfileDto> updateProfile(@AuthenticationPrincipal Jwt jwt,
                                                  @Valid @RequestBody ProfileRequest request) {
         String userId = jwt.getSubject();
-        return ResponseEntity.ok(service.updateProfile(userId, request));
+        return ResponseEntity.ok(ProfileMapper.toDto(service.updateProfile(userId, request)));
     }
 
     @PostMapping("/game")
-    public ResponseEntity<Profile> createGameProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProfileDto> createGameProfile(@AuthenticationPrincipal Jwt jwt,
                                                      @Valid @RequestBody GameProfileRequest request) {
         String userId = jwt.getSubject();
-        Profile profile = service.createGameProfile(userId, request);
-        return ResponseEntity.ok(profile);
+        return ResponseEntity.ok(ProfileMapper.toDto(service.createGameProfile(userId, request)));
     }
 
     @PutMapping("/game")
-    public ResponseEntity<Profile> updateGameProfile(@AuthenticationPrincipal Jwt jwt,
+    public ResponseEntity<ProfileDto> updateGameProfile(@AuthenticationPrincipal Jwt jwt,
                                                      @Valid @RequestBody GameProfileRequest request) {
         String userId = jwt.getSubject();
-        Profile profile = service.updateGameProfile(userId, request);
-        return ResponseEntity.ok(profile);
+        return ResponseEntity.ok(ProfileMapper.toDto(service.updateGameProfile(userId, request)));
     }
 
     @DeleteMapping("/game/{id}")
@@ -105,13 +93,20 @@ public class ProfileController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<List<ProfileResponse>> searchProfiles(
+    public ResponseEntity<List<ProfilePreviewDto>> searchProfiles(
             @RequestParam String nickname,
             @AuthenticationPrincipal Jwt jwt
     ) {
         String userId = jwt.getSubject();
-        List<ProfileResponse> results = service.searchProfiles(nickname, userId);
+        List<ProfilePreviewDto> results = service.searchProfiles(nickname, userId);
         return ResponseEntity.ok(results);
+    }
+
+    @DeleteMapping("/delete")
+    public ResponseEntity<Void> deleteAccount(@AuthenticationPrincipal Jwt jwt) {
+        String userId = jwt.getSubject();
+        service.deleteOwnProfile(userId);
+        return ResponseEntity.noContent().build();
     }
 }
 

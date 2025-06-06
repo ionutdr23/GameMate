@@ -15,7 +15,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class UserReactionResponse {
     private UUID postId;
-    private String userId;
+    private UUID profileId;
     private ReactionType type;
     private LocalDateTime reactedAt;
     private Boolean isNew;

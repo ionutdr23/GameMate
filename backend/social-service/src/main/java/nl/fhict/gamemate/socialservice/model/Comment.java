@@ -1,11 +1,14 @@
 package nl.fhict.gamemate.socialservice.model;
 
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 @Document(collection = "comments")
@@ -14,18 +17,33 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class Comment {
+
     @Id
     private UUID id;
 
+    @Field("post_id")
+    @Indexed
     private UUID postId;
-    private String userId;
+
+    @Field("profile_id")
+    @Indexed
+    private UUID profileId;
+
+    @Field("parent_comment_id")
+    @Indexed
     private UUID parentCommentId;
+
     private String content;
 
-    private LocalDateTime createdAt;
-    private boolean isEdited;
-    private LocalDateTime lastUpdatedAt;
+    @Field("is_edited")
+    @Builder.Default
+    private boolean isEdited = false;
 
-    private int reportCount;
-    private Set<String> reportedBy;
+    @CreatedDate
+    @Field("created_at")
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Field("last_updated_at")
+    private LocalDateTime lastUpdatedAt;
 }

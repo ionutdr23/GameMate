@@ -20,7 +20,7 @@ public class PostResponse {
     @Id
     private UUID id;
 
-    private String userId;
+    private UUID profileId;
     private String content;
     private Visibility visibility;
 
@@ -36,7 +36,7 @@ public class PostResponse {
     public static PostResponse fromPost(Post post) {
         return PostResponse.builder()
                 .id(post.getId())
-                .userId(post.getUserId())
+                .profileId(post.getProfileId())
                 .content(post.getContent())
                 .visibility(post.getVisibility())
                 .tags(post.getTags())

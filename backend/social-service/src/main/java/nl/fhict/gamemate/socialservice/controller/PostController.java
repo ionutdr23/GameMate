@@ -25,14 +25,14 @@ public class PostController {
         return ResponseEntity.ok(PostResponse.fromPost(postService.createPost(request, auth0UserId)));
     }
 
-    @GetMapping("/user/{userId}/posts")
+    @GetMapping("/user/{profileId}/posts")
     public ResponseEntity<Page<PostResponse>> getPosts(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable String userId,
+            @PathVariable UUID profileId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         String auth0UserId = jwt.getSubject();
-        Page<PostResponse> pagedPosts = postService.getByUserId(auth0UserId, userId, page, size);
+        Page<PostResponse> pagedPosts = postService.getByUserId(auth0UserId, profileId, page, size);
         return ResponseEntity.ok(pagedPosts);
     }
 

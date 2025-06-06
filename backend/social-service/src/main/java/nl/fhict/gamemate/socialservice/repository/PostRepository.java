@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface PostRepository extends MongoRepository<Post, UUID> {
-    List<Post> findByUserId(String userId);
+    List<Post> findByProfileId(UUID profileId);
 }

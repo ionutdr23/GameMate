@@ -1,0 +1,62 @@
+name: Push Docker Images and Sync ArgoCD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  push-and-sync:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: user-service
+            path: backend/user-service
+            image: keyshr3kt/user-service
+            ops_path: base/backend/user-service/deployment.yaml
+          - name: eureka-server
+            path: backend/eureka-server
+            image: keyshr3kt/eureka-server
+            ops_path: base/backend/eureka-server/deployment.yaml
+          - name: social-service
+            path: backend/social-service
+            image: keyshr3kt/social-service
+            ops_path: base/backend/social-service/deployment.yaml
+          - name: gateway-service
+            path: backend/gateway-service
+            image: keyshr3kt/gateway-service
+            ops_path: base/backend/gateway-service/deployment.yaml
+          - name: gamemate-frontend
+            path: frontend
+            image: keyshr3kt/gamemate-frontend
+            ops_path: base/frontend/deployment.yaml
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set Docker Tag
+        run: echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ matrix.service.image }}:${{ github.sha }} "${{ matrix.service.path }}"
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker push ${{ matrix.service.image }}:${{ github.sha }}
+
+      - name: Clone OPS Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ionutdr23/GameMate-OPS
+          token: ${{ secrets.OPS_REPO_TOKEN }}
+          path: ops
+
+      - name: Update Deployment Image Tag in OPS Repo
+        run: |
+          cd ops
+          sed -i "s|image: ${{ matrix.service.image }}:.*|image: ${{ matrix.service.image }}:${{ github.sha }}|" "${{ matrix.service.ops_path }}"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add "${{ matrix.service.ops_path }}"
+          git commit -m "Update ${{ matrix.service.name }} image to ${{ github.sha }}"
+          git push

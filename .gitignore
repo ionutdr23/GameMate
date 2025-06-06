@@ -3,5 +3,4 @@
 
 /backend/.idea
 
-/k8s/base/user-service/secrets.yaml
-/k8s/base/rabbitmq
+/k8s

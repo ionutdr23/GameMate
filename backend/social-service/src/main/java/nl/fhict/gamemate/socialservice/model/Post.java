@@ -1,15 +1,16 @@
 package nl.fhict.gamemate.socialservice.model;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Document(collection = "posts")
@@ -18,22 +19,38 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Post {
+
     @Id
     private UUID id;
 
-    private String userId;
+    @Indexed
+    @Field("profile_id")
+    private UUID profileId;
+
     private String content;
+
     private Visibility visibility;
 
-    private List<String> tags;
+    @Builder.Default
+    private List<String> tags = new ArrayList<>();
 
-    private int commentCount;
-    private int reactionCount;
+    @Builder.Default
+    @Field("comment_count")
+    private int commentCount = 0;
 
+    @Builder.Default
+    @Field("reaction_count")
+    private int reactionCount = 0;
+
+    @CreatedDate
+    @Field("created_at")
     private LocalDateTime createdAt;
-    private boolean isEdited;
+
+    @LastModifiedDate
+    @Field("last_updated_at")
     private LocalDateTime lastUpdatedAt;
 
-    private int reportCount;
-    private Set<String> reportedBy;
+    @Builder.Default
+    @Field("is_edited")
+    private boolean isEdited = false;
 }

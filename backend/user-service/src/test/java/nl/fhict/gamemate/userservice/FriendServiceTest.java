@@ -1,11 +1,11 @@
 package nl.fhict.gamemate.userservice;
 
 import jakarta.persistence.EntityNotFoundException;
-import nl.fhict.gamemate.userservice.dto.ProfileResponse;
 import nl.fhict.gamemate.userservice.model.FriendRequest;
 import nl.fhict.gamemate.userservice.model.Profile;
 import nl.fhict.gamemate.userservice.repository.FriendRequestRepository;
 import nl.fhict.gamemate.userservice.repository.ProfileRepository;
+import nl.fhict.gamemate.userservice.service.EventPublisher;
 import nl.fhict.gamemate.userservice.service.FriendService;
 import nl.fhict.gamemate.userservice.service.ProfileService;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,13 +24,15 @@ class FriendServiceTest {
     private ProfileRepository profileRepository;
     private FriendRequestRepository friendRequestRepository;
     private FriendService friendService;
+    private EventPublisher eventPublisher;
 
     @BeforeEach
     void setUp() {
         profileService = mock(ProfileService.class);
         profileRepository = mock(ProfileRepository.class);
         friendRequestRepository = mock(FriendRequestRepository.class);
-        friendService = new FriendService(profileService, profileRepository, friendRequestRepository);
+        eventPublisher = mock(EventPublisher.class);
+        friendService = new FriendService(profileService, profileRepository, friendRequestRepository, eventPublisher);
     }
 
     @Test
@@ -147,6 +149,46 @@ class FriendServiceTest {
         verify(profileRepository, never()).save(any());
     }
 
+    @Test
+    void deleteRequest_deletesRequestIfSenderMatches() {
+        String userId = "user123";
+        UUID requestId = UUID.randomUUID();
+        Profile senderProfile = Profile.builder().userId(userId).build();
+        FriendRequest request = FriendRequest.builder().sender(senderProfile).build();
+
+        when(profileService.getOwnProfile(userId)).thenReturn(senderProfile);
+        when(friendRequestRepository.findById(requestId)).thenReturn(Optional.of(request));
+
+        friendService.deleteRequest(userId, requestId);
+
+        verify(friendRequestRepository).delete(request);
+    }
+
+    @Test
+    void deleteRequest_throwsIfRequestNotFound() {
+        String userId = "user123";
+        UUID requestId = UUID.randomUUID();
+        when(profileService.getOwnProfile(userId)).thenReturn(Profile.builder().userId(userId).build());
+        when(friendRequestRepository.findById(requestId)).thenReturn(Optional.empty());
+
+        assertThrows(EntityNotFoundException.class, () -> friendService.deleteRequest(userId, requestId));
+        verify(friendRequestRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteRequest_throwsIfUserIsNotSender() {
+        String userId = "user123";
+        UUID requestId = UUID.randomUUID();
+        Profile actualSender = Profile.builder().userId("anotherUser").build();
+        FriendRequest request = FriendRequest.builder().sender(actualSender).build();
+        Profile callerProfile = Profile.builder().userId(userId).build();
+
+        when(profileService.getOwnProfile(userId)).thenReturn(callerProfile);
+        when(friendRequestRepository.findById(requestId)).thenReturn(Optional.of(request));
+
+        assertThrows(SecurityException.class, () -> friendService.deleteRequest(userId, requestId));
+        verify(friendRequestRepository, never()).delete(any());
+    }
 
     @Test
     void unfriend_removesBidirectionalFriendship() {
@@ -187,7 +229,7 @@ class FriendServiceTest {
 
         when(profileService.getOwnProfile("userId")).thenReturn(userProfile);
 
-        List<ProfileResponse> result = friendService.listFriends("userId");
+        List<Profile> result = friendService.listFriends("userId");
 
         assertEquals(2, result.size());
         assertTrue(result.stream().anyMatch(f -> f.getNickname().equals("Friend1")));
@@ -199,17 +241,5 @@ class FriendServiceTest {
         when(profileService.getOwnProfile("userId")).thenThrow(new EntityNotFoundException());
 
         assertThrows(EntityNotFoundException.class, () -> friendService.listFriends("userId"));
-    }
-
-    @Test
-    void getIncomingRequests_returnsPendingRequests() {
-        Profile receiver = new Profile();
-        List<FriendRequest> requests = List.of(new FriendRequest());
-        when(profileService.getOwnProfile("userId")).thenReturn(receiver);
-        when(friendRequestRepository.findByReceiver(receiver)).thenReturn(requests);
-
-        List<FriendRequest> result = friendService.getIncomingRequests("userId");
-
-        assertEquals(requests, result);
     }
 }

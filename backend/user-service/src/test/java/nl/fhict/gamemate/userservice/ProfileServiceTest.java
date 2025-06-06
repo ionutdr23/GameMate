@@ -2,13 +2,16 @@ package nl.fhict.gamemate.userservice;
 
 import jakarta.persistence.EntityNotFoundException;
 import nl.fhict.gamemate.userservice.dto.GameProfileRequest;
+import nl.fhict.gamemate.userservice.dto.ProfilePreviewDto;
 import nl.fhict.gamemate.userservice.dto.ProfileRequest;
-import nl.fhict.gamemate.userservice.dto.ProfileResponse;
+import nl.fhict.gamemate.userservice.event.UserStatusChangedEvent;
 import nl.fhict.gamemate.userservice.model.*;
 import nl.fhict.gamemate.userservice.repository.GameProfileRepository;
 import nl.fhict.gamemate.userservice.repository.GameRepository;
 import nl.fhict.gamemate.userservice.repository.ProfileRepository;
+import nl.fhict.gamemate.userservice.service.Auth0Service;
 import nl.fhict.gamemate.userservice.service.DOAvatarStorageService;
+import nl.fhict.gamemate.userservice.service.EventPublisher;
 import nl.fhict.gamemate.userservice.service.ProfileService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +36,8 @@ class ProfileServiceTest {
     private GameRepository gameRepository;
     private DOAvatarStorageService avatarStorageService;
     private ProfileService profileService;
+    private EventPublisher eventPublisher;
+    private Auth0Service auth0Service;
 
     @BeforeEach
     void setUp() {
@@ -40,7 +45,9 @@ class ProfileServiceTest {
         gameProfileRepository = mock(GameProfileRepository.class);
         gameRepository = mock(GameRepository.class);
         avatarStorageService = mock(DOAvatarStorageService.class);
-        profileService = new ProfileService(profileRepository, gameRepository, gameProfileRepository, avatarStorageService);
+        eventPublisher = mock(EventPublisher.class);
+        auth0Service = mock(Auth0Service.class);
+        profileService = new ProfileService(profileRepository, gameRepository, gameProfileRepository, avatarStorageService, eventPublisher, auth0Service);
     }
 
     @Test
@@ -74,6 +81,16 @@ class ProfileServiceTest {
 
         ProfileRequest request = new ProfileRequest("TakenNick", null, null);
         assertThrows(IllegalArgumentException.class, () -> profileService.createProfile("uid", request));
+    }
+
+    @Test
+    void createProfile_throwsWhenUnexpectedErrorOccurs() {
+        String userId = "auth0|boom";
+        ProfileRequest request = new ProfileRequest("Nick", null, null);
+        when(profileRepository.existsByNicknameIgnoreCase(any()))
+                .thenThrow(new RuntimeException("Something went wrong"));
+
+        assertThrows(RuntimeException.class, () -> profileService.createProfile(userId, request));
     }
 
     @Test
@@ -157,6 +174,14 @@ class ProfileServiceTest {
     void isNicknameAvailable_returnsFalseIfTaken() {
         when(profileRepository.existsByNicknameIgnoreCase("takenNick")).thenReturn(true);
         assertFalse(profileService.isNicknameAvailable("takenNick"));
+    }
+
+    @Test
+    void isNicknameAvailable_throwsWhenRepositoryFails() {
+        when(profileRepository.existsByNicknameIgnoreCase("nick"))
+                .thenThrow(new RuntimeException("DB error"));
+
+        assertThrows(RuntimeException.class, () -> profileService.isNicknameAvailable("nick"));
     }
 
     @Test
@@ -504,16 +529,9 @@ class ProfileServiceTest {
         when(profileRepository.searchByNickname(anyString(), eq(currentUserId), any(Pageable.class)))
                 .thenReturn(combined);
 
-        List<ProfileResponse> results = profileService.searchProfiles("abc", currentUserId);
+        List<ProfilePreviewDto> results = profileService.searchProfiles("abc", currentUserId);
 
         assertEquals(20, results.size());
-
-        List<ProfileResponse> firstThree = results.subList(0, 3);
-        assertTrue(firstThree.stream().allMatch(ProfileResponse::isFriend));
-
-        List<ProfileResponse> rest = results.subList(3, results.size());
-        assertTrue(rest.stream().noneMatch(ProfileResponse::isFriend));
-
         assertEquals("Friend0", results.get(0).getNickname());
     }
 
@@ -538,7 +556,7 @@ class ProfileServiceTest {
         when(profileRepository.searchByNickname(anyString(), eq(userId), any(Pageable.class)))
                 .thenReturn(List.of(selfInSearch));
 
-        List<ProfileResponse> results = profileService.searchProfiles("Self", userId);
+        List<ProfilePreviewDto> results = profileService.searchProfiles("Self", userId);
 
         assertTrue(results.isEmpty());
     }
@@ -550,6 +568,194 @@ class ProfileServiceTest {
         assertThrows(RuntimeException.class, () ->
                 profileService.searchProfiles("nick", "missing")
         );
+    }
+
+    @Test
+    void searchProfiles_throwsIfSearchFails() {
+        String userId = "auth0|user";
+        Profile me = Profile.builder().id(UUID.randomUUID()).userId(userId).friends(Set.of()).build();
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(me));
+        when(profileRepository.searchByNickname(anyString(), eq(userId), any()))
+                .thenThrow(new RuntimeException("Search failed"));
+
+        assertThrows(RuntimeException.class, () -> profileService.searchProfiles("term", userId));
+    }
+
+    @Test
+    void deleteOwnProfile_deletesProfileSuccessfully() {
+        String userId = "auth0|123456789";
+        Profile testProfile = Profile.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .avatarUrl("https://example.com/custom-avatar.png")
+                .friends(new HashSet<>())
+                .build();
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(testProfile));
+
+        profileService.deleteOwnProfile(userId);
+
+        verify(avatarStorageService).delete(testProfile.getAvatarUrl());
+        verify(eventPublisher).publishUserEvent(any(UserStatusChangedEvent.class));
+        verify(profileRepository).delete(testProfile);
+        verify(auth0Service).deleteUser(userId);
+    }
+
+    @Test
+    void deleteOwnProfile_throwsException_whenProfileNotFound() {
+        String userId = "auth0|123456789";
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.empty());
+
+        EntityNotFoundException exception = assertThrows(EntityNotFoundException.class,
+                () -> profileService.deleteOwnProfile(userId));
+
+        assertEquals("Profile not found for user: " + userId, exception.getMessage());
+        verify(avatarStorageService, never()).delete(anyString());
+        verify(profileRepository, never()).delete(any());
+        verify(auth0Service, never()).deleteUser(anyString());
+    }
+
+    @Test
+    void deleteOwnProfile_skipsAvatarDeletion_whenDefaultAvatar() {
+        String userId = "auth0|123456789";
+        Profile testProfile = Profile.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .avatarUrl(DEFAULT_AVATAR_URL)
+                .friends(new HashSet<>())
+                .build();
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(testProfile));
+
+        profileService.deleteOwnProfile(userId);
+
+        verify(avatarStorageService, never()).delete(anyString());
+        verify(profileRepository).delete(testProfile);
+        verify(auth0Service).deleteUser(userId);
+    }
+
+    @Test
+    void deleteOwnProfile_removesFromFriends() {
+        String userId = "auth0|123";
+        Profile target = Profile.builder()
+                .id(UUID.randomUUID())
+                .userId(userId)
+                .avatarUrl(DEFAULT_AVATAR_URL)
+                .friends(new HashSet<>())
+                .build();
+
+        Profile friend = Profile.builder()
+                .id(UUID.randomUUID())
+                .friends(new HashSet<>(Set.of(target)))
+                .build();
+
+        target.getFriends().add(friend);
+
+        when(profileRepository.findByUserId(userId)).thenReturn(Optional.of(target));
+
+        profileService.deleteOwnProfile(userId);
+
+        assertFalse(friend.getFriends().contains(target));
+        verify(profileRepository).save(friend);  // Verify friend was saved after update
+    }
+
+    @Test
+    void uploadAvatar_unexpectedException() {
+        MultipartFile file = mock(MultipartFile.class);
+        String userId = "user123";
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("DB error"));
+
+        assertThatThrownBy(() -> profileService.uploadAvatar(userId, file))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not upload avatar");
+    }
+
+    @Test
+    void updateProfile_unexpectedException() {
+        String userId = "user123";
+        ProfileRequest req = new ProfileRequest("nick", "bio", "loc");
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("DB down"));
+
+        assertThatThrownBy(() -> profileService.updateProfile(userId, req))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not update profile");
+    }
+
+    @Test
+    void getOwnProfile_unexpectedException() {
+        String userId = "user123";
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("Fail"));
+
+        assertThatThrownBy(() -> profileService.getOwnProfile(userId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not fetch profile");
+    }
+
+    @Test
+    void getProfile_unexpectedException() {
+        UUID id = UUID.randomUUID();
+        when(profileRepository.findById(id)).thenThrow(new RuntimeException("DB error"));
+
+        assertThatThrownBy(() -> profileService.getProfile(id))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not fetch profile");
+    }
+
+    @Test
+    void createGameProfile_unexpectedException() {
+        String userId = "user123";
+        GameProfileRequest req = GameProfileRequest.builder()
+                .gameId(UUID.randomUUID())
+                .skillLevel("Pro")
+                .playstyles(List.of(Playstyle.AGGRESSIVE))
+                .platforms(List.of(Platform.PC))
+                .build();
+
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("DB fail"));
+
+        assertThatThrownBy(() -> profileService.createGameProfile(userId, req))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not create game profile");
+    }
+
+    @Test
+    void updateGameProfile_unexpectedException() {
+        String userId = "user123";
+        GameProfileRequest req = GameProfileRequest.builder()
+                .gameId(UUID.randomUUID())
+                .skillLevel("Pro")
+                .playstyles(List.of(Playstyle.AGGRESSIVE))
+                .platforms(List.of(Platform.PC))
+                .build();
+
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("Fail"));
+
+        assertThatThrownBy(() -> profileService.updateGameProfile(userId, req))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not update game profile");
+    }
+
+    @Test
+    void deleteGameProfile_unexpectedException() {
+        String userId = "user123";
+        UUID gameProfileId = UUID.randomUUID();
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("Boom"));
+
+        assertThatThrownBy(() -> profileService.deleteGameProfile(userId, gameProfileId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not delete game profile");
+    }
+
+    @Test
+    void searchProfiles_unexpectedException() {
+        String userId = "user123";
+        when(profileRepository.findByUserId(userId)).thenThrow(new RuntimeException("Crash"));
+
+        assertThatThrownBy(() -> profileService.searchProfiles("nick", userId))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not search profiles");
     }
 }
 

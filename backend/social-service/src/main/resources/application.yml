@@ -18,4 +18,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info, loggers, mappings
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      access: unrestricted
