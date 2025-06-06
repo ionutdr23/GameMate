@@ -17,7 +17,7 @@ jobs:
           - name: eureka-server
             path: backend/eureka-server
             image: keyshr3kt/eureka-server
-            ops_path: base/backend/eureka-server/deployment.yaml
+            ops_path: base/platform/deployment.yaml
           - name: social-service
             path: backend/social-service
             image: keyshr3kt/social-service
