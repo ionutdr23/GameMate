@@ -41,7 +41,21 @@ jobs:
       - name: Build and Push Docker Images
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-          docker build -t ${{ matrix.service.image }}:${{ github.sha }} -t ${{ matrix.service.image }}:latest "${{ matrix.service.path }}"
+
+          if [ "${{ matrix.service.name }}" = "gamemate-frontend" ]; then
+            docker build \
+              --build-arg VITE_AUTH0_DOMAIN=${{ secrets.VITE_AUTH0_DOMAIN }} \
+              --build-arg VITE_AUTH0_CLIENT_ID=${{ secrets.VITE_AUTH0_CLIENT_ID }} \
+              -t ${{ matrix.service.image }}:${{ github.sha }} \
+              -t ${{ matrix.service.image }}:latest \
+              "${{ matrix.service.path }}"
+          else
+            docker build \
+              -t ${{ matrix.service.image }}:${{ github.sha }} \
+              -t ${{ matrix.service.image }}:latest \
+              "${{ matrix.service.path }}"
+          fi
+
           docker push ${{ matrix.service.image }}:${{ github.sha }}
           docker push ${{ matrix.service.image }}:latest
 
