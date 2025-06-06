@@ -38,11 +38,12 @@ jobs:
       - name: Set Docker Tag
         run: echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Docker Images
         run: |
-          docker build -t ${{ matrix.service.image }}:${{ github.sha }} "${{ matrix.service.path }}"
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          docker build -t ${{ matrix.service.image }}:${{ github.sha }} -t ${{ matrix.service.image }}:latest "${{ matrix.service.path }}"
           docker push ${{ matrix.service.image }}:${{ github.sha }}
+          docker push ${{ matrix.service.image }}:latest
 
       - name: Clone OPS Repo
         uses: actions/checkout@v4
