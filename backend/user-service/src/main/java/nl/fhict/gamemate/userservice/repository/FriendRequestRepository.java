@@ -18,6 +18,6 @@ public interface FriendRequestRepository extends JpaRepository<FriendRequest, UU
     List<FriendRequest> findByReceiver(Profile receiver);
     @Modifying
     @Query("DELETE FROM FriendRequest fr WHERE fr.sender = :profile OR fr.receiver = :profile")
-    void deleteBySenderOrReceiver(@Param("profile") Profile profile, @Param("profile") Profile profile2);
+    void deleteBySenderOrReceiver(@Param("profile") Profile profile);
 }
 
